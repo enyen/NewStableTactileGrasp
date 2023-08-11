@@ -1,0 +1,21 @@
+/home/enyen/miniconda3/envs/tactile_control_env/lib/python3.8/site-packages/pybullet_envs/__init__.py
+Line 6:
+  # if id in registry.env_specs:
+  if id in registry:
+
+
+/home/enyen/miniconda3/envs/tactile_control_env/lib/python3.8/site-packages/stable_baselines3/common/vec_env/vec_normalize.py
+Line 121:
+        # else:
+        #     raise ValueError(
+        #         "VecNormalize only supports `gym.spaces.Box` and `gym.spaces.Dict` observation spaces, "
+        #         f"not {self.observation_space}"
+        #     )
+
+
+/home/enyen/miniconda3/envs/tactile_control_env/lib/python3.8/site-packages/stable_baselines3/common/vec_env/subproc_vec_env.py
+Line 42:
+                    # observation, reset_info = env.reset()
+                    observation, reset_info = env.reset(), {}
+
+
