@@ -41,8 +41,8 @@ if __name__ == '__main__':
         cfg["params"]["general"]["cfg"] = args.cfg + '/cfg.yaml'
         cfg["params"]["general"]["checkpoint"] = args.cfg + '/models/best_model.pt'
         cfg["params"]["general"]["train"] = False
-        cfg["params"]["general"]["render"] = False
-        cfg["params"]["general"]["record"] = True
+        cfg["params"]["general"]["render"] = True
+        cfg["params"]["general"]["num_games"] = 100
 
     algo = ppo.PPO(cfg)
 

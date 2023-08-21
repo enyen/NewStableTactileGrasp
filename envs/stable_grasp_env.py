@@ -207,15 +207,11 @@ class StableGraspEnv(RedMaxTorchEnv):
         grasp_finger_position = -0.008
 
         qpos_init = self.current_q.clone().cpu().numpy()
-
         qpos_init[1] = self.grasp_position
-        
         self.prev_grasp_position = self.grasp_position
 
         target_qs = []
-
         target_qs.append(qpos_init[:6]) # stage 1
-
         target_qs.append(np.array([0.0, self.grasp_position, grasp_height, 0.0, grasp_finger_position, grasp_finger_position])) # stage 2
         target_qs.append(np.array([0.0, self.grasp_position, grasp_height, 0.0, grasp_finger_position, grasp_finger_position]))
         target_qs.append(np.array([0.0, self.grasp_position, lift_height, 0.0, grasp_finger_position, grasp_finger_position])) # stage 3
@@ -225,10 +221,8 @@ class StableGraspEnv(RedMaxTorchEnv):
         target_qs.append(np.array([0.0, self.grasp_position, grasp_height, 0.0, qpos_init[4], qpos_init[5]])) # stage 5
 
         num_steps = [20, 10, 50, 20, 50, 10, 20]
-
         assert len(num_steps) == len(target_qs) - 1
         actions = []
-
         for stage in range(len(target_qs) - 1):
             for i in range(num_steps[stage]):
                 u = (target_qs[stage + 1] - target_qs[stage]) / num_steps[stage] * (i + 1) + target_qs[stage] # linearly interpolate the target joint positions
@@ -268,7 +262,6 @@ class StableGraspEnv(RedMaxTorchEnv):
         # compute reward
         object_rotvec = qs[capture_frame, 9:12]
         abs_angle = np.linalg.norm(object_rotvec)
-        print(qs[capture_frame, -4:], abs_angle, qs[capture_frame, -4])
         if abs_angle < 0.02 and qs[capture_frame, -4] > 0.005:
             success = True
         else:

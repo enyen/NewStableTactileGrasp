@@ -316,6 +316,7 @@ class PPO:
         print('policy std = ', self.actor_critic.actor_net.logstd.exp())
         games_cnt = 0
         total_reward = 0.
+        total_len = 0.
         total_reward_details = {}
         while num_games != games_cnt:
             reward, episode_len, extra_info = self.play_once(self.actor_critic, ob_rms, cfg['params']['general']['stochastic'], \
@@ -323,6 +324,7 @@ class PPO:
             games_cnt += 1
 
             total_reward += reward
+            total_len += episode_len
             reward_details = extra_info['reward_details']
             for key in reward_details:
                 if key not in total_reward_details:
@@ -332,6 +334,7 @@ class PPO:
         for key in total_reward_details:
             total_reward_details[key] = total_reward_details[key] / num_games
             
-        print_info('[Summary] Avg reward = {:.3f}, details = {}'.format(total_reward / games_cnt, total_reward_details))
+        print_info('[Summary] Avg reward = {:.3f}, Avg len = {:.3f}, details = {}'.format(
+            total_reward / games_cnt, total_len / games_cnt, total_reward_details))
 
         print_info('-------------------------------------------------------------------------------------------------------------')

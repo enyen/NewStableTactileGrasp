@@ -25,18 +25,25 @@ if __name__ == '__main__':
     args = parser.parse_args(args_list + sys.argv[1:])
 
     # load config
-    with open(args.cfg, 'r') as f:
+    args.train = not args.play
+    file_cfg = './cfg' if args.train else args.cfg
+    with open(file_cfg + '/cfg.yaml', 'r') as f:
         cfg = yaml.load(f, Loader=yaml.SafeLoader)
 
     if not args.no_time_stamp:
         args.logdir = os.path.join(args.logdir, get_time_stamp())
 
-    args.train = not args.play
-    vargs = vars(args)
-
-    # cfg["params"]["general"] = {}
-    # for key in vargs.keys():
-    #     cfg["params"]["general"][key] = vargs[key]
+    if args.train:
+        vargs = vars(args)
+        cfg["params"]["general"] = {}
+        for key in vargs.keys():
+            cfg["params"]["general"][key] = vargs[key]
+    else:
+        cfg["params"]["general"]["cfg"] = args.cfg + '/cfg.yaml'
+        cfg["params"]["general"]["checkpoint"] = args.cfg + '/models/best_model.pt'
+        cfg["params"]["general"]["train"] = False
+        cfg["params"]["general"]["render"] = True
+        cfg["params"]["general"]["record"] = True
 
     algo = ppo.PPO(cfg)
 

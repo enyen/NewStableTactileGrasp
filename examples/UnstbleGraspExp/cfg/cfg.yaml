@@ -1,7 +1,7 @@
 params:
   env:
     name: UnstableGrasp-v1
-    observation_type: tactile_flatten
+#    observation_type: tactile_flatten
 
   network:
     actor: DiagGaussianActor
@@ -19,7 +19,7 @@ params:
 
   config:
     use_gae: True
-    num_env_steps: 2000
+    num_env_steps: 5000
     num_steps: 16
     num_processes: 8
     lr: 0.0003
