@@ -8,7 +8,7 @@ import envs
 import gym
 
 if __name__ == '__main__':
-    env = gym.make('UnstableGrasp-v1', observation_type='tactile_map', verbose=True, render_tactile=True)
+    env = gym.make('UnstableGrasp-v1', verbose=True, render_tactile=True)
 
     action_space = env.action_space
 
@@ -17,11 +17,10 @@ if __name__ == '__main__':
     # env.render(mode='loop')
 
     for i in range(10):
-        # action = action_space.sample()
-        action = [-0.2]
+        action = action_space.sample()
         obs, reward, done, _, _ = env.step(action)
-        # env.render(mode='once')
+        print(reward)
+        env.render(mode='once')
         if done:
-        #     print('reset')
+            print('reset')
             obs = env.reset()
-        #     env.render(mode='once')

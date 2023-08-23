@@ -58,15 +58,15 @@
   <robot>
     <link name="box">
       <joint name="box" type="free3d-euler" pos="0 0 0.015" quat="1 0 0 0" damping="0.0"/>
-      <body name="box" type="cuboid" size="0.03 0.30 0.03" pos="0 0 0" quat="1 0 0 0" density="200"
+      <body name="box" type="cuboid" size="0.03 0.22 0.03" pos="0 0 0" quat="1 0 0 0" density="200"
             general_contact_resolution="3 3 2" rgba="0.3 0.2 0.05 0"/>
       <link name="box_l">
-        <joint name="box_l" type="fixed" pos="0 0.155 0.025" quat="1 0 0 0" damping="0.0"/>
+        <joint name="box_l" type="fixed" pos="0 0.115 0.025" quat="1 0 0 0" damping="0.0"/>
         <body name="box_l" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="1"
               general_contact_resolution="3 3 2" rgba="0.45 0.45 0.4 0"/>
       </link>
       <link name="box_r">
-        <joint name="box_r" type="fixed" pos="0 -0.155 0.025" quat="1 0 0 0" damping="0.0"/>
+        <joint name="box_r" type="fixed" pos="0 -0.115 0.025" quat="1 0 0 0" damping="0.0"/>
         <body name="box_r" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="1"
               general_contact_resolution="3 3 2" rgba="0.45 0.45 0.4 0"/>
       </link>
@@ -75,8 +75,8 @@
 
   <robot>
     <link name="weight">
-      <joint name="weight" type="free3d" pos="0 -0.1 0.041" quat="1 0 0 0" damping="0.0"/>
-      <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="100"
+      <joint name="weight" type="free3d" pos="0 0 0.041" quat="1 0 0 0" damping="0.0"/>
+      <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="400"
             general_contact_resolution="3 3 2" rgba="0.3 0.1 0.07 0"/>
     </link>
   </robot>
@@ -85,7 +85,7 @@
     <ground_contact body="box" kn="1e3" kt="1" mu="0.8" damping="0.003"/>
     <general_primitive_contact general_body="tactile_pad_left" primitive_body="box" kn="8e3" kt="80." mu="1.5" damping="1e3" render="false"/>
     <general_primitive_contact general_body="tactile_pad_right" primitive_body="box" kn="8e3" kt="80." mu="1.5" damping="1e3" render="false"/>
-    <general_primitive_contact primitive_body="box" general_body="weight" mu="0.1"/>
+    <general_primitive_contact primitive_body="box" general_body="weight" mu="0.09"/>
     <general_primitive_contact general_body="box_l" primitive_body="weight" kt="100."/>
     <general_primitive_contact general_body="box_r" primitive_body="weight" kt="100." />
   </contact>
