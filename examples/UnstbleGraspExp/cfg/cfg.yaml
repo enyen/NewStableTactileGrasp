@@ -6,16 +6,16 @@ params:
   network:
     actor: DiagGaussianActor
     actor_mlp:
-      layer_sizes: [64, 64]
+      layer_sizes: [256, 128, 64, 32]
       activation: elu
-      layernorm: False
+      layernorm: True
     actor_logstd_init: 0
 
     critic: MLPCritic
     critic_mlp:
-      layer_sizes: [64, 64]
+      layer_sizes: [256, 128, 64, 32]
       activation: elu
-      layernorm: False
+      layernorm: True
 
   config:
     use_gae: True

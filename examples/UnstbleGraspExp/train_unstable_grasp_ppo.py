@@ -18,9 +18,7 @@ if __name__ == '__main__':
                  '--seed', '0']
 
     solve_argv_conflict(args_list)
-
     parser = get_rl_parser()
-
     args = parser.parse_args(args_list + sys.argv[1:])
 
     # load config
@@ -41,7 +39,7 @@ if __name__ == '__main__':
         cfg["params"]["general"]["cfg"] = args.cfg + '/cfg.yaml'
         cfg["params"]["general"]["checkpoint"] = args.cfg + '/models/best_model.pt'
         cfg["params"]["general"]["train"] = False
-        cfg["params"]["general"]["render"] = True
+        cfg["params"]["general"]["render"] = False
         cfg["params"]["general"]["num_games"] = 100
 
     algo = ppo.PPO(cfg)

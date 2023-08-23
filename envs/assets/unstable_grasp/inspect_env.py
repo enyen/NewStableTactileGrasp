@@ -26,8 +26,8 @@ for t in range(200):
 # wait
 sim.forward(40, verbose=False, test_derivatives=False)
 # down
-for t in range(200):
-    u = qpos_end[:6] + t / 200. * (qpos_init[:6] - qpos_end[:6])
+for t in range(50):
+    u = qpos_end[:6] + t / 50. * (qpos_init[:6] - qpos_end[:6])
     sim.set_u(u)
     sim.forward(1, verbose=False, test_derivatives=False)
 
