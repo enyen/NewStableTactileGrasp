@@ -58,7 +58,7 @@
   <robot>
     <link name="box">
       <joint name="box" type="free3d-euler" pos="0 0 0.015" quat="1 0 0 0" damping="0.0"/>
-      <body name="box" type="cuboid" size="0.03 0.22 0.03" pos="0 0 0" quat="1 0 0 0" density="200"
+      <body name="box" type="cuboid" size="0.03 0.22 0.03" pos="0 0 0" quat="1 0 0 0" density="25"
             general_contact_resolution="3 3 2" rgba="0.3 0.2 0.05 0"/>
       <link name="box_l">
         <joint name="box_l" type="fixed" pos="0 0.115 0.025" quat="1 0 0 0" damping="0.0"/>
@@ -76,7 +76,7 @@
   <robot>
     <link name="weight">
       <joint name="weight" type="free3d" pos="0 0 0.041" quat="1 0 0 0" damping="0.0"/>
-      <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="400"
+      <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="500"
             general_contact_resolution="3 3 2" rgba="0.3 0.1 0.07 0"/>
     </link>
   </robot>

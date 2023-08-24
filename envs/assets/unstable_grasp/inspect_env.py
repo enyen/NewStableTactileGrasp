@@ -7,16 +7,18 @@ sim.viewer_options.infinite = False
 sim.viewer_options.speed = 1
 
 qpos_init = sim.get_q_init().copy()
-print("q_init: ", qpos_init.shape)
-qpos_init[1] = -0.05
+qpos_init[1] = 0.003
 qpos_init[2] = 0.166
-qpos_init[4] = -0.017
-qpos_init[5] = -0.017
+qpos_init[4] = -0.016
+qpos_init[5] = -0.016
+qpos_init[13] = 0
 
 qpos_end = qpos_init.copy()
 qpos_end[2] += 0.02
-sim.set_q_init(qpos_init)
+
+sim.set_state_init(qpos_init, np.zeros_like(qpos_init))
 sim.reset(backward_flag=False)
+print(sim.get_q())
 
 # up
 for t in range(200):
@@ -24,7 +26,9 @@ for t in range(200):
     sim.set_u(u)
     sim.forward(1, verbose=False, test_derivatives=False)
 # wait
-sim.forward(40, verbose=False, test_derivatives=False)
+sim.forward(100, verbose=False, test_derivatives=False)
+print(sim.get_q())
+print(np.linalg.norm(sim.get_q()[9:12]))
 # down
 for t in range(50):
     u = qpos_end[:6] + t / 50. * (qpos_init[:6] - qpos_end[:6])
