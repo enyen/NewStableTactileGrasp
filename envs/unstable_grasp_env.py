@@ -41,13 +41,14 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         # action
         self.action_space = spaces.Box(low=np.full(2, -1.),
                                        high=np.full(2, 1.), dtype=np.float32)
-        self.action_scale = [0.05, 0.0015]
+        self.action_scale = [0.066, 0.002]
         self.hand_bound = 0.1
         self.finger_bound = 0.003
 
         self.reward_buf = 0.
         self.done_buf = False
         self.info_buf = {}
+        self.num_steps = 0
 
     def _get_obs(self):
         return self.obs_buf
@@ -59,6 +60,7 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         # self.domain_rand()
 
         # clear
+        self.num_steps = 0
         self.hand_q = 0.
         self.finger_q = 0.
         self.sim.clearBackwardCache()
@@ -115,8 +117,7 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         self.sim.update_tactile_parameters('tactile_pad_right', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
 
     def step(self, u):
-        u[1] = 0
-
+        self.num_steps += 1
         action = np.clip(u, -1., 1.) * self.action_scale
         self.hand_q = np.clip(self.hand_q + action[0], -self.hand_bound, self.hand_bound)
         self.finger_q = np.clip(self.finger_q + action[1], -self.finger_bound, self.finger_bound)
@@ -129,8 +130,7 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         lift_dist = 0.02
         lift_height = self.hand_height + lift_dist
         init_finger = -0.021
-        # offset_finger = -0.016
-        offset_finger = -0.017
+        offset_finger = -0.016
         finger_q = self.finger_q + offset_finger
 
         target_qs = np.array([
@@ -168,19 +168,32 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         self.obs_buf = self.obs_buf.reshape(-1)
 
         # reward
-        # a_rot = 20    # max0.095  -1.9:0  th0.001
-        # a_drop = 50   # max0.02   -1.0:0  th0.001
-        # a_force = 50  # max0.006  -0.3:0
-        a_rot = 10
-        a_drop = 0
-        a_force = 0
-        self.reward_buf = (a_rot * -np.linalg.norm(qs[:, 9:12], axis=1).max() +
-                           a_drop * min(0, (qs[0, 2] - qs[0, 8]) - (qs[-1, 2] - qs[-1, 8])) +
-                           a_force * (-self.finger_bound - self.finger_q))
-        self.done_buf = False
-        if self.reward_buf > -0.02:
-            self.reward_buf = 100
+        th_rot = -0.002
+        th_drop = -0.002
+        box_rot = -np.linalg.norm(qs[:, 9:12], axis=1).max()                # min-0.095
+        box_drop = min(0, (qs[0, 2] - qs[0, 8]) - (qs[-1, 2] - qs[-1, 8]))  # min-0.020
+        grip_force = -self.finger_bound - self.finger_q                     # min-0.006
+
+        if box_rot > th_rot and box_drop > th_drop:
+            self.reward_buf = (10 +
+                               500 * grip_force)
+            # self.reward_buf = (100 +
+            #                    5000 * grip_force)
+            # self.done_buf = True
+        # elif box_rot < th_rot and box_drop > th_drop:
+        #     self.reward_buf = (10 * box_rot +
+        #                        1 +
+        #                        30 * grip_force)
+        #     self.done_buf = False
+        else:
+            self.reward_buf = (10 * box_rot +
+                               20 * box_drop +
+                               30 * grip_force)
+            # self.done_buf = False
+        if self.num_steps == 8:
             self.done_buf = True
+        else:
+            self.done_buf = False
 
     def normalize_tactile(self, tactile_arrays):
         '''
