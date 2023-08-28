@@ -1,11 +1,10 @@
-import os
-import sys
-project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-sys.path.append(project_base_dir)
+from os import path
 import cv2
 import numpy as np
-from gym import spaces
-from envs.redmax_torch_env import RedMaxTorchEnv
+import redmax_py as redmax
+import gymnasium as gym
+from gymnasium.utils import seeding
+from einops import rearrange
 
 """
 dof definition:
@@ -19,28 +18,31 @@ dof definition:
 """
 
 
-class UnstableGraspEnv(RedMaxTorchEnv):
-    def __init__(self,  render_tactile=False, verbose=False, seed=0):
+class UnstableGraspEnv(gym.Env):
+    metadata = {}
+
+    def __init__(self, seed=None):
+        super().__init__()
         # simulation
-        self.obs_buf = 0
-        asset_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
-        model_path = os.path.join(asset_folder, 'unstable_grasp/unstable_grasp.xml')
-        super(UnstableGraspEnv, self).__init__(model_path, seed=seed)
+        model_path = path.join(path.join(path.dirname(path.abspath(__file__)), 'assets'),
+                               'unstable_grasp/unstable_grasp.xml')
+        self.sim = redmax.Simulation(model_path)
         self.sim.viewer_options.camera_lookat = np.array([0., 0., 1])
         self.sim.viewer_options.camera_pos = np.array([3., -1., 1.7])
-        self.verbose = verbose
-        self.render_tactile = render_tactile
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
 
         # observation
         self.tactile_samples, self.tactile_rows, self.tactile_cols = 3, 8, 6
-        ndof_obs = self.tactile_samples * self.tactile_rows * self.tactile_cols * 2 * 2
-        self.observation_space = spaces.Box(low=np.full(ndof_obs, -float('inf')),
-                                            high=np.full(ndof_obs, -float('inf')), dtype=np.float32)
-        self.obs_buf = np.zeros(ndof_obs)
+        # ndof_obs = self.tactile_samples * self.tactile_rows * self.tactile_cols * 2 * 2
+        ndof_obs = (self.tactile_samples * 2 * 2, self.tactile_rows, self.tactile_cols)
+        self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -float('inf')),
+                                                high=np.full(ndof_obs, -float('inf')), dtype=np.float32)
+        self.obs_buf = np.zeros(ndof_obs, dtype=np.float32)
 
         # action
-        self.action_space = spaces.Box(low=np.full(2, -1.),
-                                       high=np.full(2, 1.), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=np.full(2, -1.),
+                                           high=np.full(2, 1.), dtype=np.float32)
         self.action_scale = [0.066, 0.002]
         self.hand_bound = 0.1
         self.finger_bound = 0.003
@@ -50,10 +52,7 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         self.info_buf = {}
         self.num_steps = 0
 
-    def _get_obs(self):
-        return self.obs_buf
-
-    def reset(self, seed=-1):
+    def reset(self, seed=None, options=None):
         # randomization
         self.hand_height = 0.166
         self.weight_pos = self.np_random.uniform(-0.09, 0.09)
@@ -67,7 +66,7 @@ class UnstableGraspEnv(RedMaxTorchEnv):
 
         # init observation
         self.grasp()
-        if seed == -1:
+        if seed is None:
             return self.obs_buf
         else:
             return self.obs_buf, {}
@@ -123,6 +122,9 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         self.finger_q = np.clip(self.finger_q + action[1], -self.finger_bound, self.finger_bound)
         self.grasp()
         truncated = False
+        if self.num_steps == 10:
+            truncated = True
+            self.done_buf = True
         return self.obs_buf, self.reward_buf, self.done_buf, truncated, {}
 
     def grasp(self):
@@ -163,9 +165,12 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         self.weight_pos = np.clip(qs[-1, 13].copy(), -0.095, 0.095)
 
         # observation
-        self.obs_buf = tactiles.reshape(self.tactile_samples, 2, self.tactile_rows, self.tactile_cols, 3)[:, 0:2, ..., 0:2]
-        self.obs_buf = self.normalize_tactile(self.obs_buf)
-        self.obs_buf = self.obs_buf.reshape(-1)
+        # obs_buf = tactiles.reshape(self.tactile_samples, 2, self.tactile_rows, self.tactile_cols, 3)[..., 0:2]
+        # self.obs_buf = self.normalize_tactile(obs_buf).reshape(-1)
+        obs_buf = rearrange(tactiles, 't (s h w d) -> (t s h w) d',
+                            t=self.tactile_samples, s=2, h=self.tactile_rows, w=self.tactile_cols, d=3)[..., 0:2]
+        self.obs_buf = rearrange(self.normalize_tactile(obs_buf), '(t s h w) d -> (t s d) h w',
+                                 t=self.tactile_samples, s=2, h=self.tactile_rows, w=self.tactile_cols, d=2)
 
         # reward
         th_rot = -0.002
@@ -175,11 +180,11 @@ class UnstableGraspEnv(RedMaxTorchEnv):
         grip_force = -self.finger_bound - self.finger_q                     # min-0.006
 
         if box_rot > th_rot and box_drop > th_drop:
-            self.reward_buf = (10 +
-                               500 * grip_force)
-            # self.reward_buf = (100 +
-            #                    5000 * grip_force)
-            # self.done_buf = True
+            # self.reward_buf = (20 +
+            #                    1000 * grip_force)
+            self.reward_buf = (100 +
+                               5000 * grip_force)
+            self.done_buf = True
         # elif box_rot < th_rot and box_drop > th_drop:
         #     self.reward_buf = (10 * box_rot +
         #                        1 +
@@ -189,18 +194,13 @@ class UnstableGraspEnv(RedMaxTorchEnv):
             self.reward_buf = (10 * box_rot +
                                20 * box_drop +
                                30 * grip_force)
-            # self.done_buf = False
-        if self.num_steps == 8:
-            self.done_buf = True
-        else:
             self.done_buf = False
+        # if self.num_steps == 8:
+        #     self.done_buf = True
+        # else:
+        #     self.done_buf = False
 
     def normalize_tactile(self, tactile_arrays):
-        '''
-        normalize the shear force field
-        input: dimension (T, 2, nrows, ncols, 2)
-        output: dimension (T, 2, nrows, ncols, 2)
-        '''
         normalized_tactile_arrays = tactile_arrays.copy()
         lengths = np.linalg.norm(tactile_arrays, axis=-1)
         normalized_tactile_arrays = normalized_tactile_arrays / ((np.max(lengths) + 1e-5) / 30.)
@@ -232,7 +232,7 @@ class UnstableGraspEnv(RedMaxTorchEnv):
                                         tipLength=0.3)
         return imgs_tactile
 
-    def render(self, mode='once'):
+    def render_tactile(self, mode='once'):
         if self.render_tactile:
             tactile_obs = self.obs_buf.reshape(self.tactile_samples, 2, self.tactile_rows, self.tactile_cols, 2)
             img_tactile_left = self.visualize_tactile(tactile_obs[-2:-1, 0:1, ...]).transpose([1, 0, 2])
@@ -242,6 +242,12 @@ class UnstableGraspEnv(RedMaxTorchEnv):
             cv2.waitKey(1)
         print('\033[96m', 'Looping... Press [Esc] to continue.', '\033[0m')
         super().render('loop')
+
+    def render(self):
+        self.sim.viewer_options.loop = True
+        self.sim.viewer_options.infinite = True
+        self.sim.viewer_options.speed = 1.
+        self.sim.replay()
 
     def sim_epi_forward(self, q0, actions, tactile_masks, q_mask):
         self.sim.set_state_init(q0, np.zeros_like(q0))
@@ -258,5 +264,8 @@ class UnstableGraspEnv(RedMaxTorchEnv):
                 tactiles.append(self.sim.get_tactile_force_vector().copy())
 
         qs = np.stack(qs, axis=0)
-        tactiles = np.stack(tactiles, axis=0)
+        tactiles = np.stack(tactiles, axis=0, dtype=np.float32)
         return qs, tactiles
+
+    def close(self):
+        pass
