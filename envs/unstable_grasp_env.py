@@ -52,7 +52,7 @@ class UnstableGraspEnv(gym.Env):
         self.info_buf = {}
         self.num_steps = 0
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=-1, options=None):
         # randomization
         self.hand_height = 0.166
         self.weight_pos = self.np_random.uniform(-0.09, 0.09)
@@ -66,7 +66,7 @@ class UnstableGraspEnv(gym.Env):
 
         # init observation
         self.grasp()
-        if seed is None:
+        if seed == -1:
             return self.obs_buf
         else:
             return self.obs_buf, {}

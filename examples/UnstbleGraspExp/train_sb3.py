@@ -32,37 +32,42 @@ class CustomCNN(BaseFeaturesExtractor):
 
 
 if __name__ == "__main__":
-    # env
-    dt = datetime.now().strftime('%m-%d_%H-%M')
-    # env = UnstableGraspEnv()
-    env = make_vec_env(UnstableGraspEnv, n_envs=8, vec_env_cls=SubprocVecEnv)
-    env = VecNormalize(env)
+    # training
+    if len(sys.argv) == 1:
+        # env
+        dt = datetime.now().strftime('%m-%d_%H-%M')
+        # env = UnstableGraspEnv()
+        env = make_vec_env(UnstableGraspEnv, n_envs=8, vec_env_cls=SubprocVecEnv)
+        env = VecNormalize(env)
 
-    # model
-    policy_kwargs = dict(features_extractor_class=CustomCNN,
-                         features_extractor_kwargs=dict(features_dim=256),
-                         net_arch=dict(pi=[128, 64], qf=[128, 64]),
-                         normalize_images=False,
-                         share_features_extractor=False)
-    model = SAC("CnnPolicy", env, gradient_steps=-1, tensorboard_log='./log', policy_kwargs=policy_kwargs)
-    # print(model.policy)
-    model.learn(total_timesteps=20000, log_interval=20, progress_bar=True)
-    model.save("ug_{}".format(dt))
+        # model
+        policy_kwargs = dict(features_extractor_class=CustomCNN,
+                             features_extractor_kwargs=dict(features_dim=256),
+                             net_arch=dict(pi=[128, 64], qf=[128, 64]),
+                             normalize_images=False,
+                             share_features_extractor=False)
+        model = SAC("CnnPolicy", env, gradient_steps=-1, tensorboard_log='./log', policy_kwargs=policy_kwargs)
+        # print(model.policy)
+        model.learn(total_timesteps=20000, progress_bar=True)
+        model.save("./storage/ug_{}_model".format(dt))
+        env.save("./storage/ug_{}_stat.pkl".format(dt))
 
-    # # testing
-    # env = UnstableGraspEnv()
-    # model = SAC.load("ug_08-28_02-39")
-    # obs = env.reset()
-    # total_steps = 0
-    # total_rewards = 0
-    # while True:
-    #     action, _states = model.predict(obs, deterministic=True)
-    #     obs, reward, terminated, truncated, info = env.step(action)
-    #     total_steps += 1
-    #     total_rewards += reward
-    #     if terminated or truncated:
-    #         print('total steps: {}, total reward: {}, final reward: {}'.format(total_steps, total_rewards, reward))
-    #         env.render()
-    #         obs = env.reset()
-    #         total_steps = 0
-    #         total_rewards = 0
+    # testing
+    elif len(sys.argv) == 2:
+        saved_model = sys.argv[1]
+        env = VecNormalize.load(saved_model + '_stat.pkl', SubprocVecEnv([lambda: UnstableGraspEnv()]))
+        model = SAC.load(saved_model + "_model", env)
+        obs = env.reset()
+        total_steps = 0
+        total_rewards = 0
+        while True:
+            action, _states = model.predict(obs, deterministic=True)
+            obs, reward, terminated, info = env.step(action)
+            total_steps += 1
+            total_rewards += reward
+            if terminated:
+                print('total steps: {}, total reward: {}, final reward: {}'.format(total_steps, total_rewards, reward))
+                env.render()
+                obs = env.reset()
+                total_steps = 0
+                total_rewards = 0
