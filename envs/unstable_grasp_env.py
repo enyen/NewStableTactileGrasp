@@ -33,9 +33,8 @@ class UnstableGraspEnv(gym.Env):
             self._np_random, seed = seeding.np_random(seed)
 
         # observation
-        self.tactile_samples, self.tactile_rows, self.tactile_cols = 3, 8, 6
-        # ndof_obs = self.tactile_samples * self.tactile_rows * self.tactile_cols * 2 * 2
-        ndof_obs = (self.tactile_samples * 2 * 2, self.tactile_rows, self.tactile_cols)
+        self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 4, 2, 2, 8, 6
+        ndof_obs = (self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols)
         self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -float('inf')),
                                                 high=np.full(ndof_obs, -float('inf')), dtype=np.float32)
         self.obs_buf = np.zeros(ndof_obs, dtype=np.float32)
@@ -152,7 +151,7 @@ class UnstableGraspEnv(gym.Env):
         # tactile_mask = np.arange(sum(num_steps)) % 20 == 0
         # tactile_mask[-num_steps[-1]:] = False
         tactile_mask = np.zeros(sum(num_steps), dtype=bool)
-        tactile_mask[[90, 290, 390]] = True
+        tactile_mask[[90, 190, 290, 390]] = True
         q_mask = np.zeros(sum(num_steps), dtype=bool)
         q_mask[-(num_steps[-3] + num_steps[-2] + num_steps[-1]):-num_steps[-1]] = True
 
@@ -165,12 +164,10 @@ class UnstableGraspEnv(gym.Env):
                                   (0.11 - self.weight_width/2 - 0.001))
 
         # observation
-        # obs_buf = tactiles.reshape(self.tactile_samples, 2, self.tactile_rows, self.tactile_cols, 3)[..., 0:2]
-        # self.obs_buf = self.normalize_tactile(obs_buf).reshape(-1)
         obs_buf = rearrange(tactiles, 't (s h w d) -> (t s h w) d',
-                            t=self.tactile_samples, s=2, h=self.tactile_rows, w=self.tactile_cols, d=3)[..., 0:2]
-        self.obs_buf = rearrange(self.normalize_tactile(obs_buf), '(t s h w) d -> (t s d) h w',
-                                 t=self.tactile_samples, s=2, h=self.tactile_rows, w=self.tactile_cols, d=2)
+                            t=self.tactile_samples, s=self.tactile_sensors, h=self.tactile_rows, w=self.tactile_cols, d=3)[..., 0:self.tactile_dim]
+        self.obs_buf = rearrange(self.normalize_tactile(obs_buf), '(t s h w) d -> t s d h w',
+                                 t=self.tactile_samples, s=self.tactile_sensors, h=self.tactile_rows, w=self.tactile_cols, d=self.tactile_dim)
 
         # reward
         th_rot = -0.002

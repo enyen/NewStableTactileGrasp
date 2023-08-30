@@ -8,27 +8,31 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch.nn as nn
+from einops import rearrange
 
 
-class CustomCNN(BaseFeaturesExtractor):
+class CnnFeaEx(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim):
         super().__init__(observation_space, features_dim)
-        n_c, n_h, n_w = observation_space.shape
+        n_t, n_s, n_c, n_h, n_w = observation_space.shape
         self.model = nn.Sequential(
-            nn.Conv2d(n_c, n_c * 2, kernel_size=3),
-            nn.BatchNorm2d(n_c * 2),
+            nn.Conv2d(n_c * n_t, n_c * n_t * 2, kernel_size=3),
+            nn.BatchNorm2d(n_c * n_t * 2),
             nn.SiLU(),
-            nn.Conv2d(n_c * 2, n_c * 3, kernel_size=3),
-            nn.BatchNorm2d(n_c * 3),
+            nn.Conv2d(n_c * n_t * 2, n_c * n_t * 3, kernel_size=3),
+            nn.BatchNorm2d(n_c * n_t * 3),
             nn.SiLU(),
             nn.Flatten(),
-            nn.Linear((n_c * 3) * (n_h - 4) * (n_w - 4), features_dim),
-            nn.BatchNorm1d(features_dim),
+            nn.Linear((n_c * n_t * 3) * (n_h - 4) * (n_w - 4), features_dim // n_s),
             nn.SiLU()
         )
 
-    def forward(self, observations):
-        return self.model(observations)
+    def forward(self, x):
+        b, t, s, c, h, w = x.shape
+        x = rearrange(x, 'b t s c h w -> (b s) (t c) h w', b=b, t=t, s=s, c=c, h=h, w=w)
+        x = self.model(x)
+        x = rearrange(x, '(b s) d -> b (s d)', b=b, s=s)
+        return x
 
 
 if __name__ == "__main__":
@@ -36,12 +40,11 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         # env
         dt = datetime.now().strftime('%m-%d_%H-%M')
-        # env = UnstableGraspEnv()
         env = make_vec_env(UnstableGraspEnv, n_envs=8, vec_env_cls=SubprocVecEnv)
         env = VecNormalize(env)
 
         # model
-        policy_kwargs = dict(features_extractor_class=CustomCNN,
+        policy_kwargs = dict(features_extractor_class=CnnFeaEx,
                              features_extractor_kwargs=dict(features_dim=256),
                              net_arch=dict(pi=[128, 64], qf=[128, 64]),
                              normalize_images=False,
