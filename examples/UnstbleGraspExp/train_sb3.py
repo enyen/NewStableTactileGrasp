@@ -58,19 +58,28 @@ if __name__ == "__main__":
     # testing
     elif len(sys.argv) == 2:
         saved_model = sys.argv[1]
-        env = VecNormalize.load(saved_model + '_stat.pkl', SubprocVecEnv([lambda: UnstableGraspEnv()]))
+        venv = VecNormalize.load(saved_model + '_stat.pkl', SubprocVecEnv([lambda: UnstableGraspEnv()]))
+        venv.training = False
+        env = UnstableGraspEnv(render_style='record')
+        # env = UnstableGraspEnv(render_style='loop')
         model = SAC.load(saved_model + "_model", env)
         obs = env.reset()
+        env.render()
         total_steps = 0
         total_rewards = 0
         while True:
-            action, _states = model.predict(obs, deterministic=True)
-            obs, reward, terminated, info = env.step(action)
+            action, _states = model.predict(venv.normalize_obs(obs), deterministic=True)
+            obs, reward, terminated, truncated, info = env.step(action)
             total_steps += 1
             total_rewards += reward
-            if terminated:
-                print('total steps: {}, total reward: {}, final reward: {}'.format(total_steps, total_rewards, reward))
-                env.render()
+            env.render()
+            if terminated or truncated:
+                print('total steps: {}, total reward: {}, final reward: {}'.format(
+                    total_steps, total_rewards, reward))
+                os.system('ffmpeg {} -filter_complex "[0:v][1:v] concat=n=2:v=1:a=0" -y unstable_grasp.gif'.format(
+                    ' '.join(['-i ./storage/{}.gif'.format(i) for i in range(total_steps + 1)])))
+                break
                 obs = env.reset()
+                env.render()
                 total_steps = 0
                 total_rewards = 0

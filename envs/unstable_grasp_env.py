@@ -1,4 +1,4 @@
-from os import path
+from os import path, system
 import cv2
 import numpy as np
 import redmax_py as redmax
@@ -21,7 +21,7 @@ dof definition:
 class UnstableGraspEnv(gym.Env):
     metadata = {}
 
-    def __init__(self, seed=None):
+    def __init__(self, render_style='loop', seed=None):
         super().__init__()
         # simulation
         model_path = path.join(path.join(path.dirname(path.abspath(__file__)), 'assets'),
@@ -29,6 +29,8 @@ class UnstableGraspEnv(gym.Env):
         self.sim = redmax.Simulation(model_path)
         self.sim.viewer_options.camera_lookat = np.array([0., 0., 1])
         self.sim.viewer_options.camera_pos = np.array([3., -1., 1.7])
+        self.render_mode = 'rgb'
+        self.render_style = render_style
         if seed is not None:
             self._np_random, seed = seeding.np_random(seed)
 
@@ -49,14 +51,14 @@ class UnstableGraspEnv(gym.Env):
         self.reward_buf = 0.
         self.done_buf = False
         self.info_buf = {}
-        self.num_steps = 0
+        self.i_steps = 0
 
     def reset(self, seed=-1, options=None):
         # randomization
         self.domain_rand()
 
         # clear
-        self.num_steps = 0
+        self.i_steps = 0
         self.hand_q = 0.
         self.finger_q = 0.
         self.sim.clearBackwardCache()
@@ -114,13 +116,13 @@ class UnstableGraspEnv(gym.Env):
         # self.sim.update_tactile_parameters('tactile_pad_right', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
 
     def step(self, u):
-        self.num_steps += 1
+        self.i_steps += 1
         action = np.clip(u, -1., 1.) * self.action_scale
         self.hand_q = np.clip(self.hand_q + action[0], -self.hand_bound, self.hand_bound)
         self.finger_q = np.clip(self.finger_q + action[1], -self.finger_bound, self.finger_bound)
         self.grasp()
         truncated = False
-        if self.num_steps == 10:
+        if self.i_steps == 10:
             truncated = True
             self.done_buf = True
         return self.obs_buf, self.reward_buf, self.done_buf, truncated, {}
@@ -192,7 +194,7 @@ class UnstableGraspEnv(gym.Env):
                                20 * box_drop +
                                30 * grip_force)
             self.done_buf = False
-        # if self.num_steps == 8:
+        # if self.i_steps == 8:
         #     self.done_buf = True
         # else:
         #     self.done_buf = False
@@ -241,10 +243,21 @@ class UnstableGraspEnv(gym.Env):
         super().render('loop')
 
     def render(self):
-        self.sim.viewer_options.loop = True
-        self.sim.viewer_options.infinite = True
-        self.sim.viewer_options.speed = 1.
-        self.sim.replay()
+        if self.render_style == 'loop':
+            self.sim.viewer_options.loop = True
+            self.sim.viewer_options.infinite = True
+            self.sim.viewer_options.speed = 1.
+            self.sim.replay()
+        elif self.render_style == 'record':
+            self.sim.viewer_options.loop = False
+            self.sim.viewer_options.infinite = False
+            self.sim.viewer_options.speed = 1.
+            self.sim.viewer_options.record = True
+            self.sim.viewer_options.record_folder = './storage'
+            self.sim.replay()
+            system("ffmpeg -i ./storage/%d.png -vf palettegen ./storage/palette.png -hide_banner -loglevel error")
+            system("ffmpeg -framerate 30 -i ./storage/%d.png -i ./storage/palette.png -lavfi paletteuse ./storage/{}.gif -hide_banner -loglevel error".format(self.i_steps))
+            system("rm ./storage/*.png")
 
     def sim_epi_forward(self, q0, actions, tactile_masks, q_mask):
         self.sim.set_state_init(q0, np.zeros_like(q0))
