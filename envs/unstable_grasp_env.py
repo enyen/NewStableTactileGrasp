@@ -54,9 +54,7 @@ class UnstableGraspEnv(gym.Env):
 
     def reset(self, seed=-1, options=None):
         # randomization
-        self.hand_height = 0.166
-        self.weight_pos = self.np_random.uniform(-0.09, 0.09)
-        # self.domain_rand()
+        self.domain_rand()
 
         # clear
         self.num_steps = 0
@@ -79,41 +77,42 @@ class UnstableGraspEnv(gym.Env):
         contact kn, kt, mu, damping
         tactile kn, kt, mu, damping
         """
-        finger_height_range = []
-        weight_pos_range = []
-        weight_density_range = []
-        weight_width_range = []
-        weight_mu_range = []
-        contact_kn_range = [2e3, 14e3]
-        contact_kt_range = [20., 140.]
-        contact_mu_range = [0.5, 2.5]
-        contact_damping_range = [1e3, 1e3]
-        tactile_kn_range = [50, 450]
-        tactile_kt_range = [0.2, 2.3]
-        tactile_mu_range = [0.5, 2.5]
-        tactile_damping_range = [0, 100]
+        finger_height_range = [0.164, 0.168]
+        weight_pos_range = [-0.089, 0.089]
+        weight_width_range = [0.015, 0.040]
+        weight_density_range = [400, 600]
+        weight_mu_range = [0.07, 0.2]
+        # contact_kn_range = [2e3, 14e3]
+        # contact_kt_range = [20., 140.]
+        # contact_mu_range = [0.5, 2.5]
+        # contact_damping_range = [1e3, 1e3]
+        # tactile_kn_range = [50, 450]
+        # tactile_kt_range = [0.2, 2.3]
+        # tactile_mu_range = [0.5, 2.5]
+        # tactile_damping_range = [0, 100]
 
         self.hand_height = self.np_random.uniform(*finger_height_range)
         self.weight_pos = self.np_random.uniform(*weight_pos_range)
+        self.weight_width = self.np_random.uniform(*weight_width_range)
         weight_density = self.np_random.uniform(*weight_density_range)
-        weight_width = self.np_random.uniform(*weight_width_range)
         weight_mu = self.np_random.uniform(*weight_mu_range)
-        contact_kn = self.np_random.uniform(*contact_kn_range)
-        contact_kt = self.np_random.uniform(*contact_kt_range)
-        contact_mu = self.np_random.uniform(*contact_mu_range)
-        contact_damping = self.np_random.uniform(*contact_damping_range)
-        tactile_kn = self.np_random.uniform(*tactile_kn_range)
-        tactile_kt = self.np_random.uniform(*tactile_kt_range)
-        tactile_mu = self.np_random.uniform(*tactile_mu_range)
-        tactile_damping = self.np_random.uniform(*tactile_damping_range)
+        # contact_kn = self.np_random.uniform(*contact_kn_range)
+        # contact_kt = self.np_random.uniform(*contact_kt_range)
+        # contact_mu = self.np_random.uniform(*contact_mu_range)
+        # contact_damping = self.np_random.uniform(*contact_damping_range)
+        # tactile_kn = self.np_random.uniform(*tactile_kn_range)
+        # tactile_kt = self.np_random.uniform(*tactile_kt_range)
+        # tactile_mu = self.np_random.uniform(*tactile_mu_range)
+        # tactile_damping = self.np_random.uniform(*tactile_damping_range)
 
+        self.sim.update_body_color('weight', tuple(self.np_random.uniform(0, 1, 3)))
         self.sim.update_body_density('weight', weight_density)
-        self.sim.update_body_size('weight', (0.025, weight_width, 0.02))
-        self.sim.update_contact_parameters('weight', 'box', mu=weight_mu)
-        self.sim.update_contact_parameters('tactile_pad_left', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
-        self.sim.update_contact_parameters('tactile_pad_right', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
-        self.sim.update_tactile_parameters('tactile_pad_left', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
-        self.sim.update_tactile_parameters('tactile_pad_right', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
+        self.sim.update_contact_parameters('weight', 'box', mu=weight_mu, kn=5e3, kt=5, damping=1e2)
+        self.sim.update_body_size('weight', (0.025, self.weight_width, 0.02))
+        # self.sim.update_contact_parameters('tactile_pad_left', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
+        # self.sim.update_contact_parameters('tactile_pad_right', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
+        # self.sim.update_tactile_parameters('tactile_pad_left', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
+        # self.sim.update_tactile_parameters('tactile_pad_right', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
 
     def step(self, u):
         self.num_steps += 1
@@ -162,7 +161,8 @@ class UnstableGraspEnv(gym.Env):
                            0,0,0, 0,0,0,
                            0,self.weight_pos,0, 0,0,0])
         qs, tactiles = self.sim_epi_forward(q_init, actions, tactile_mask, q_mask)
-        self.weight_pos = np.clip(qs[-1, 13].copy(), -0.095, 0.095)
+        self.weight_pos = np.clip(qs[-1, 13].copy(), -(0.11 - self.weight_width/2 - 0.001),
+                                  (0.11 - self.weight_width/2 - 0.001))
 
         # observation
         # obs_buf = tactiles.reshape(self.tactile_samples, 2, self.tactile_rows, self.tactile_cols, 3)[..., 0:2]
