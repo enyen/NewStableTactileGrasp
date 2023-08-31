@@ -37,8 +37,8 @@ class UnstableGraspEnv(gym.Env):
         # observation
         self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 4, 2, 2, 8, 6
         ndof_obs = (self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols)
-        self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -float('inf')),
-                                                high=np.full(ndof_obs, -float('inf')), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -3),
+                                                high=np.full(ndof_obs, 3), dtype=np.float32)
         self.obs_buf = np.zeros(ndof_obs, dtype=np.float32)
 
         # action
@@ -53,7 +53,7 @@ class UnstableGraspEnv(gym.Env):
         self.info_buf = {}
         self.i_steps = 0
 
-    def reset(self, seed=-1, options=None):
+    def reset(self, seed=None, options=None):
         # randomization
         self.domain_rand()
 
@@ -65,10 +65,7 @@ class UnstableGraspEnv(gym.Env):
 
         # init observation
         self.grasp()
-        if seed == -1:
-            return self.obs_buf
-        else:
-            return self.obs_buf, {}
+        return self.obs_buf, {}
 
     def domain_rand(self):
         # TODO: set ranges
