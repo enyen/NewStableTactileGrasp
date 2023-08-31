@@ -136,12 +136,15 @@ python train_tactile_insertion_ppo.py
 #### Taactile Unstable Grasp
 
 ```commandline
-cd exaample UnstableGraspExp
-# training, according to ./cfg/cfg.yaml
-python train_unstable_grasp_ppo.py
-# testing, according to best_model saved in thedatetimefolder
-python train_unstable_grasp_ppo.py --play --cfg ./trained_models/thedatetimefolder
+cd example/UnstableGraspExp
+# training
+python train_sb3.py
+# testing using model saved in ug_datetime
+python train_sb3.py ./storage/ug_datetime
 ```
+
+<p align="center">
+    <img src="demos/unstable_grasp.gif" alt="unstable_grasp" width="500" /></p>
 
 ## Citation
 

@@ -78,11 +78,11 @@ class UnstableGraspEnv(gym.Env):
         contact kn, kt, mu, damping
         tactile kn, kt, mu, damping
         """
-        finger_height_range = [0.164, 0.168]
+        finger_height_range = [0.163, 0.169]
         weight_pos_range = [-0.089, 0.089]
         weight_width_range = [0.015, 0.040]
-        weight_density_range = [400, 600]
-        weight_mu_range = [0.07, 0.2]
+        weight_density_range = [500, 700]
+        weight_mu_range = [0.05, 0.15]
         # contact_kn_range = [2e3, 14e3]
         # contact_kt_range = [20., 140.]
         # contact_mu_range = [0.5, 2.5]

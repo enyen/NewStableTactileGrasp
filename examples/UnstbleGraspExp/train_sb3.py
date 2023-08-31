@@ -60,8 +60,9 @@ if __name__ == "__main__":
         saved_model = sys.argv[1]
         venv = VecNormalize.load(saved_model + '_stat.pkl', SubprocVecEnv([lambda: UnstableGraspEnv()]))
         venv.training = False
-        env = UnstableGraspEnv(render_style='record')
+        # env = UnstableGraspEnv(render_style='record')
         # env = UnstableGraspEnv(render_style='loop')
+        env = UnstableGraspEnv(render_style='None')
         model = SAC.load(saved_model + "_model", env)
         obs = env.reset()
         env.render()
@@ -76,9 +77,11 @@ if __name__ == "__main__":
             if terminated or truncated:
                 print('total steps: {}, total reward: {}, final reward: {}'.format(
                     total_steps, total_rewards, reward))
-                os.system('ffmpeg {} -filter_complex "[0:v][1:v] concat=n=2:v=1:a=0" -y unstable_grasp.gif'.format(
-                    ' '.join(['-i ./storage/{}.gif'.format(i) for i in range(total_steps + 1)])))
-                break
+                # for recording
+                # os.system('ffmpeg {} -filter_complex "[0:v][1:v] concat=n=2:v=1:a=0" -y unstable_grasp.gif'.format(
+                #     ' '.join(['-i ./storage/{}.gif'.format(i) for i in range(total_steps + 1)])))
+                # break
+                # for stats
                 obs = env.reset()
                 env.render()
                 total_steps = 0
