@@ -4,14 +4,14 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
 ## Installation
 1. Clone the project and its submodule from github: `git clone git@github.com:enyen/TactileSimulation.git --recursive `.
 
-2. Install **CMake** >= 3.1.0: [official instruction for cmake installation](https://cmake.org/install/)
+2. Install **CMake** >= 3.1.0
 
 3. Create conda environment 
 
    ```
    conda create -n tactile_sim python=3.10
    conda activate tactile_sim
-   pip install torch torchvision opencv-python einops stable_baselines3 tensorboard scipy pyyaml
+   pip install torch torchvision opencv-python einops stable_baselines3 tensorboard scipy pyyaml tqdm rich
    ```
 
 5. Install `DiffRedMax`

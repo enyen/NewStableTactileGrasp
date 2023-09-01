@@ -37,8 +37,8 @@ class UnstableGraspEnv(gym.Env):
         # observation
         self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 4, 2, 2, 8, 6
         ndof_obs = (self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols)
-        self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -3),
-                                                high=np.full(ndof_obs, 3), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -10),
+                                                high=np.full(ndof_obs, 10), dtype=np.float32)
         self.obs_buf = np.zeros(ndof_obs, dtype=np.float32)
 
         # action
