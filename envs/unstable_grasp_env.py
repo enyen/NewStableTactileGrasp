@@ -35,7 +35,7 @@ class UnstableGraspEnv(gym.Env):
             self._np_random, seed = seeding.np_random(seed)
 
         # observation
-        self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 4, 2, 2, 8, 6
+        self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 7, 2, 2, 8, 6
         ndof_obs = (self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols)
         self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -10),
                                                 high=np.full(ndof_obs, 10), dtype=np.float32)
@@ -150,7 +150,7 @@ class UnstableGraspEnv(gym.Env):
         # tactile_mask = np.arange(sum(num_steps)) % 20 == 0
         # tactile_mask[-num_steps[-1]:] = False
         tactile_mask = np.zeros(sum(num_steps), dtype=bool)
-        tactile_mask[[90, 190, 290, 390]] = True
+        tactile_mask[[90, 140, 190, 240, 290, 340, 390]] = True
         q_mask = np.zeros(sum(num_steps), dtype=bool)
         q_mask[-(num_steps[-3] + num_steps[-2] + num_steps[-1]):-num_steps[-1]] = True
 
@@ -176,8 +176,6 @@ class UnstableGraspEnv(gym.Env):
         grip_force = -self.finger_bound - self.finger_q                     # min-0.006
 
         if box_rot > th_rot and box_drop > th_drop:
-            # self.reward_buf = (20 +
-            #                    1000 * grip_force)
             self.reward_buf = (100 +
                                5000 * grip_force)
             self.done_buf = True
@@ -187,14 +185,13 @@ class UnstableGraspEnv(gym.Env):
         #                        30 * grip_force)
         #     self.done_buf = False
         else:
-            self.reward_buf = (10 * box_rot +
-                               20 * box_drop +
-                               30 * grip_force)
+            # self.reward_buf = (10 * box_rot +
+            #                    20 * box_drop +
+            #                    30 * grip_force)
+            self.reward_buf = (64 * box_rot +
+                               96 * box_drop +
+                               128 * grip_force)
             self.done_buf = False
-        # if self.i_steps == 8:
-        #     self.done_buf = True
-        # else:
-        #     self.done_buf = False
 
     def normalize_tactile(self, tactile_arrays):
         normalized_tactile_arrays = tactile_arrays.copy()
@@ -230,7 +227,7 @@ class UnstableGraspEnv(gym.Env):
 
     def render_tactile(self, mode='once'):
         if self.render_tactile:
-            tactile_obs = self.obs_buf.reshape(self.tactile_samples, 2, self.tactile_rows, self.tactile_cols, 2)
+            tactile_obs = self.obs_buf.reshape(self.tactile_samples, self.tactile_sensors, self.tactile_rows, self.tactile_cols, self.tactile_dim)
             img_tactile_left = self.visualize_tactile(tactile_obs[-2:-1, 0:1, ...]).transpose([1, 0, 2])
             img_tactile_right = self.visualize_tactile(tactile_obs[-2:-1, 1:2, ...]).transpose([1, 0, 2])
             cv2.imshow("tactile_left", img_tactile_left)

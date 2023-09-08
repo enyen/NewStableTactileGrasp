@@ -120,7 +120,7 @@ class TfmerFeaEx(BaseFeaturesExtractor):
             nn.Conv2d(n_c * 5, n_c * 10, kernel_size=3),
             nn.BatchNorm2d(n_c * 10),
             nn.SiLU(),
-            nn.AdaptiveMaxPool2d((1, 1)),
+            nn.AdaptiveMaxPool2d(1),
             nn.Flatten(),
             nn.Linear(n_c * 10, features_dim // n_s),
             nn.SiLU()
@@ -151,7 +151,7 @@ class CnnFeaEx(BaseFeaturesExtractor):
             nn.Conv2d(d_input * 2, d_input * 4, kernel_size=3),
             nn.BatchNorm2d(d_input * 4),
             nn.SiLU(),
-            nn.AdaptiveMaxPool2d((1, 1)),
+            nn.AdaptiveMaxPool2d(1),
             nn.Flatten(),
             nn.Linear(d_input * 4, features_dim // n_s),
             nn.SiLU()
