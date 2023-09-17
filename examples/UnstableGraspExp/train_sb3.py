@@ -35,6 +35,10 @@ if __name__ == "__main__":
 
     # testing
     elif len(sys.argv) == 2:
+        from matplotlib import pyplot as plt
+        import numpy as np
+
+        epi_test = 200
         saved_model = sys.argv[1]
         venv = VecNormalize.load(saved_model + '_stat.pkl', SubprocVecEnv([lambda: UnstableGraspEnv()]))
         venv.training = False
@@ -44,24 +48,47 @@ if __name__ == "__main__":
         model = SAC.load(saved_model + "_model", env)
         obs, _ = env.reset()
         env.render()
-        total_steps = 0
-        total_rewards = 0
+        lengths, rewards, weight_force, truncation = [], [], [], []
+
         while True:
             action, _states = model.predict(venv.normalize_obs(obs), deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
-            total_steps += 1
-            total_rewards += reward
             env.render()
             if terminated or truncated:
-                print('total steps: {}, total reward: {}, final reward: {}'.format(
-                    total_steps, total_rewards, reward))
+                print('epi:{:03d}, steps:{}, sumR:{:.01f}, lastR:{:.01f}'.format(
+                    len(lengths), env.i_steps, env.acc_reward, reward))
                 # for recording
                 # os.system('ffmpeg {} -filter_complex "[0:v][1:v] concat=n=2:v=1:a=0" -y unstable_grasp.gif'.format(
                 #     ' '.join(['-i ./storage/{}.gif'.format(i) for i in range(total_steps + 1)])))
                 # os.system('rm ./storage/*.gif')
                 # break
-                # for stats
-                obs, _ = env.reset()
+                # for stats)
+                lengths.append(env.i_steps)
+                rewards.append(env.acc_reward)
+                weight_force.append([env.weight_weight, env.finger_q])
+                truncation.append(truncated)
                 env.render()
-                total_steps = 0
-                total_rewards = 0
+                obs, _ = env.reset()
+                if len(lengths) >= epi_test:
+                    break
+
+        succeed = np.logical_not(np.asarray(truncation))
+        lengths = np.asarray(lengths)[succeed] * 1.0
+        rewards = np.asarray(rewards)[succeed] * 1.0
+        weight_force = np.asarray(weight_force)[succeed] * 1.0
+
+        # epi length
+        print('Success Rate: {:03f}'.format(succeed.sum() * 1.0 / epi_test))
+        print('Epi length: [Min, Avg, Max] = [{}, {:03f}, {}]'.format(
+            lengths.min(), lengths.mean(), lengths.max()))
+
+        # weight:force
+        lengths = lengths - lengths.min()
+        clr = np.stack((lengths / lengths.max(), 1. - (lengths / lengths.max()), np.zeros_like(lengths)), axis=1)
+        plt.scatter(weight_force[:, 0] * 1000, weight_force[:, 1] * 1000 + 2.5, c=clr)
+        plt.title("Grip force against load weight.")
+        plt.xlabel("Load Weight (gram)")
+        plt.ylabel("Gripping Distance (mm)")
+        plt.xlim(17, 92)
+        plt.ylim(0, 5.1)
+        plt.show()
