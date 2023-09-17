@@ -35,7 +35,7 @@ class PositionalEncoding(nn.Module):
         pe = torch.cat((torch.sin(position[..., 0:1] * mul_term[None, None]),
                         torch.cos(position[..., 0:1] * mul_term[None, None]),
                         torch.sin(position[..., 1:2] * mul_term[None, None]),
-                        torch.sin(position[..., 1:2] * mul_term[None, None])), dim=-1)
+                        torch.cos(position[..., 1:2] * mul_term[None, None])), dim=-1)
         pe = rearrange(pe.unsqueeze(0), 'b h w d -> b (h w) d')
         return pe
 
@@ -53,17 +53,20 @@ class Tfmer(nn.Module):
         self.lyrs = nn.ModuleList()
         for _ in range(n_lyr):
             self.lyrs.append(nn.ModuleDict({
-                'self': SelfAttention(d_model, n_head, dropout),
+                'cross': CrossAttention(d_model, n_head, dropout),
                 'fefo': FefoAttention(d_model, d_fefo, dropout),
             }))
 
     def forward(self, src):
         tgt = self.tgt.expand(src.size(0), -1, -1)
-        tgtsrc = torch.cat((tgt, src), dim=1)
         for lyr in self.lyrs:
-            tgtsrc = lyr['self'](tgtsrc)
-            tgtsrc = lyr['fefo'](tgtsrc)
-        return tgtsrc[:, 0]
+            tgt = lyr['cross'](tgt, src)
+            tgt = lyr['fefo'](tgt)
+        return tgt[:, 0]
+        # tgtsrc = torch.cat((tgt, src), dim=1)
+        #     tgtsrc = lyr['self'](tgtsrc)
+        #     tgtsrc = lyr['fefo'](tgtsrc)
+        # return tgtsrc[:, 0]
 
 
 class SelfAttention(nn.Module):
@@ -84,6 +87,24 @@ class SelfAttention(nn.Module):
         return tgt + identity
 
 
+class CrossAttention(nn.Module):
+    def __init__(self, d_model, nhead, dropout, layer_norm_eps=1e-5):
+        super().__init__()
+        self.norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.attn = nn.MultiheadAttention(d_model, nhead, dropout=0, batch_first=True)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, tgt, mem, mem_mask=None, mem_key_padding_mask=None):
+        identity = tgt
+        tgt = self.norm(tgt)
+        tgt = self.attn(tgt, mem, mem,
+                        attn_mask=mem_mask,
+                        key_padding_mask=mem_key_padding_mask,
+                        need_weights=False)[0]
+        tgt = self.drop(tgt)
+        return tgt + identity
+
+
 class FefoAttention(nn.Module):
     def __init__(self, d_model, d_fefo, dropout, layer_norm_eps=1e-5):
         super().__init__()
@@ -95,9 +116,7 @@ class FefoAttention(nn.Module):
             nn.Dropout(dropout))
 
     def forward(self, x):
-        identity = x
-        x = self.fefo(x)
-        return x + identity
+        return x + self.fefo(x)
 
 
 class GEGLU(nn.Module):
@@ -114,20 +133,20 @@ class TfmerFeaEx(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
         self.cnn = nn.Sequential(
-            nn.Conv2d(n_c, n_c * 5, kernel_size=3),
-            nn.BatchNorm2d(n_c * 5),
+            nn.Conv2d(n_c, n_c * 3, kernel_size=3),
+            nn.BatchNorm2d(n_c * 3),
             nn.SiLU(),
-            nn.Conv2d(n_c * 5, n_c * 10, kernel_size=3),
-            nn.BatchNorm2d(n_c * 10),
+            nn.Conv2d(n_c * 3, n_c * 6, kernel_size=3),
+            nn.BatchNorm2d(n_c * 6),
             nn.SiLU(),
-            nn.AdaptiveMaxPool2d(1),
+            nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(n_c * 10, features_dim // n_s),
+            nn.Linear(n_c * 6, features_dim // n_s),
             nn.SiLU()
         )
         self.pos_enc = PositionalEncoding(d_model=features_dim, sizes=n_t, cat_pe=False)
-        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 2,
-                           dropout=0.1, n_lyr=2)
+        self.tfmer = Tfmer(d_model=features_dim, n_head=4, d_fefo=features_dim * 4,
+                           dropout=0, n_lyr=6)
 
     def forward(self, x):
         b, t, s, c, h, w = x.shape
@@ -151,7 +170,7 @@ class CnnFeaEx(BaseFeaturesExtractor):
             nn.Conv2d(d_input * 2, d_input * 4, kernel_size=3),
             nn.BatchNorm2d(d_input * 4),
             nn.SiLU(),
-            nn.AdaptiveMaxPool2d(1),
+            nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
             nn.Linear(d_input * 4, features_dim // n_s),
             nn.SiLU()

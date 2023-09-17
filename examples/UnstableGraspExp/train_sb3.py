@@ -19,12 +19,12 @@ if __name__ == "__main__":
 
         # model
         policy_kwargs = dict(normalize_images=False,
-                             features_extractor_class=CnnFeaEx,
-                             features_extractor_kwargs=dict(features_dim=64),
-                             net_arch=dict(pi=[32, 16], qf=[32, 16]),
-                             # features_extractor_class=TfmerFeaEx,
-                             # features_extractor_kwargs=dict(features_dim=32),
-                             # net_arch=dict(pi=[32, 16], qf=[32, 16]),
+                             # features_extractor_class=CnnFeaEx,
+                             # features_extractor_kwargs=dict(features_dim=64),
+                             # net_arch=dict(pi=[128, 128], qf=[128, 128]),
+                             features_extractor_class=TfmerFeaEx,
+                             features_extractor_kwargs=dict(features_dim=32),
+                             net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              share_features_extractor=False)
         model = SAC("CnnPolicy", env, gradient_steps=-1, device='cpu',
                     policy_kwargs=policy_kwargs, tensorboard_log='./log')
