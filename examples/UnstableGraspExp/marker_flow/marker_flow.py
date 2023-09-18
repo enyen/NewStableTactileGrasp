@@ -1,17 +1,33 @@
 import cv2
 import time
 import signal
+import warnings
 import numpy as np
+from threading import Thread
 from matcher import Matching
 
 
 class MarkerFlow:
-    def __init__(self):
+    def __init__(self, fps=30):
+        # init param
+        self.fps = fps
         self.cam_idx = [-1, -1]
         self.running = False
-        signal.signal(signal.SIGINT, self.signal_stop)
+        self.collection = None
+        self.process = Thread()
 
-    def inspect_cam(self):
+        # init process
+        signal.signal(signal.SIGINT, self._signal_stop)
+        self.get_cam_idx()
+
+    def get_cam_idx(self):
+        self.cam_idx = [-1, -1]
+        self._inspect_cam()  # get cam1 id
+        self._inspect_cam()  # get cam2 id
+        assert self.cam_idx[0] != -1 and self.cam_idx[1] != -1, (
+            'Camera id {} undefined(-1)!'.format(self.cam_idx))
+
+    def _inspect_cam(self):
         for i in range(8):
             if i in self.cam_idx:
                 continue
@@ -29,28 +45,37 @@ class MarkerFlow:
             self.cam_idx[int(idx)] = i
             break
 
-    def run(self, debug=False):
+    def start(self, vis=False):
+        if not self.process.is_alive():
+            self.process = Thread(target=self._run, args=(vis,))
+            self.process.start()
+        else:
+            warnings.warn("Process already started!")
+
+    def stop(self):
+        if self.process.is_alive():
+            self.running = False
+            self.process.join(5)
+            if self.process.is_alive():
+                raise Exception("Unable to terminate thread!")
+        else:
+            warnings.warn("No active process to stop!")
+
+    def _run(self, debug):
         self.running = True
         flows = []
 
         # matcher
-        matcherl = Matching(N_=8, M_=6, fps_=30,
+        matcherl = Matching(N_=8, M_=6, fps_=self.fps,
                             x0_=25, y0_=30,
                             dx_=38, dy_=38)
-        matcherr = Matching(N_=8, M_=6, fps_=30,
+        matcherr = Matching(N_=8, M_=6, fps_=self.fps,
                             x0_=25, y0_=30,
                             dx_=38, dy_=38)
-
-        # cam order
-        # inspect_cam()  # get cam1 id
-        # inspect_cam()  # get cam2 id
-        # assert idxs[0] != -1 and idxs[1] != -1, 'Camera id {} undefined(-1)!'.format(idxs)
 
         # camera
-        # caml = cv2.VideoCapture(idxs[0])
-        # camr = cv2.VideoCapture(idxs[1])
-        caml = cv2.VideoCapture('3.avi')
-        camr = cv2.VideoCapture('4.avi')
+        caml = cv2.VideoCapture(self.cam_idx[0])
+        camr = cv2.VideoCapture(self.cam_idx[1])
         caml.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         camr.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         caml.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
@@ -66,20 +91,20 @@ class MarkerFlow:
             imgr = cv2.rotate(imgr, cv2.ROTATE_90_CLOCKWISE)
 
             # marker flow
-            ctrl = self.marker_center(imgl)
-            ctrr = self.marker_center(imgr)
+            ctrl = self._marker_center(imgl)
+            ctrr = self._marker_center(imgr)
             matcherl.init(ctrl)
             matcherr.init(ctrr)
             matcherl.run()
             matcherr.run()
             flowl = matcherl.get_flow()
             flowr = matcherr.get_flow()
-            flows.append(self.convert_flows(flowl, flowr))
+            flows.append(self._convert_flows(flowl, flowr))
 
             # debug view
             if debug:
-                self.draw_flow(imgl, flowl)
-                self.draw_flow(imgr, flowr)
+                self._draw_flow(imgl, flowl)
+                self._draw_flow(imgr, flowr)
                 for ctrs in zip(ctrl, ctrr):
                     cv2.circle(imgl, (int(ctrs[0][0]), int(ctrs[0][1])), 10, (255, 255, 255), 2, 6)
                     cv2.circle(imgr, (int(ctrs[1][0]), int(ctrs[1][1])), 10, (255, 255, 255), 2, 6)
@@ -94,10 +119,13 @@ class MarkerFlow:
         camr.release()
         cv2.destroyAllWindows()
         self.running = False
-        return np.stack(flows, axis=0)  # [t s c h w]
+        self.collection = np.stack(flows, axis=0)  # [t s c h w]
+
+    def get_marker_flow(self):
+        return self.collection.copy()
 
     @staticmethod
-    def convert_flows(fl, fr):
+    def _convert_flows(fl, fr):
         """
         output: (Ox, Oy, Cx, Cy, Occupied) = flow
         Ox, Oy: N*M matrix, the x and y coordinate of each marker at frame 0
@@ -113,7 +141,7 @@ class MarkerFlow:
         return flow
 
     @staticmethod
-    def marker_center(frame):
+    def _marker_center(frame):
         area_l, area_h = 6, 64
 
         # mask
@@ -140,7 +168,7 @@ class MarkerFlow:
         return ctrs
 
     @staticmethod
-    def draw_flow(frame, flow):
+    def _draw_flow(frame, flow):
         Ox, Oy, Cx, Cy, Occupied = flow
         for i in range(len(Ox)):
             for j in range(len(Ox[i])):
@@ -151,5 +179,11 @@ class MarkerFlow:
                     color = (127, 127, 255)
                 cv2.arrowedLine(frame, pt1, pt2, color, 2, tipLength=0.2)
 
-    def signal_stop(self, signum, frame):
+    def _signal_stop(self, signum, frame):
         self.running = False
+
+
+if __name__ == "__main__":
+    mf = MarkerFlow()
+    mf.start()
+    print(mf.get_marker_flow().shape)
