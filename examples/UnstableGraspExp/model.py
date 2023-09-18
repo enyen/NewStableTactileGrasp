@@ -133,20 +133,20 @@ class TfmerFeaEx(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
         self.cnn = nn.Sequential(
-            nn.Conv2d(n_c, n_c * 3, kernel_size=3),
-            nn.BatchNorm2d(n_c * 3),
+            nn.Conv2d(n_c, n_c * 4, kernel_size=3),
+            nn.BatchNorm2d(n_c * 4),
             nn.SiLU(),
-            nn.Conv2d(n_c * 3, n_c * 6, kernel_size=3),
-            nn.BatchNorm2d(n_c * 6),
+            nn.Conv2d(n_c * 4, n_c * 8, kernel_size=3),
+            nn.BatchNorm2d(n_c * 8),
             nn.SiLU(),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(n_c * 6, features_dim // n_s),
+            nn.Linear(n_c * 8, features_dim // n_s),
             nn.SiLU()
         )
         self.pos_enc = PositionalEncoding(d_model=features_dim, sizes=n_t, cat_pe=False)
-        self.tfmer = Tfmer(d_model=features_dim, n_head=4, d_fefo=features_dim * 4,
-                           dropout=0, n_lyr=6)
+        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 6,
+                           dropout=0, n_lyr=2)
 
     def forward(self, x):
         b, t, s, c, h, w = x.shape

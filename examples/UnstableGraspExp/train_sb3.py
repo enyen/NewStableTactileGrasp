@@ -1,9 +1,10 @@
-import sys, os
+import sys
+from os import path
 from datetime import datetime
 from stable_baselines3 import SAC
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
-base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../'))
+base_dir = path.abspath(path.join(path.dirname(path.abspath(__file__)), '../../'))
 sys.path.append(base_dir)
 from envs.unstable_grasp_env import UnstableGraspEnv
 from examples.UnstableGraspExp.model import CnnFeaEx, TfmerFeaEx
@@ -40,7 +41,7 @@ if __name__ == "__main__":
 
         epi_test = 200
         saved_model = sys.argv[1]
-        venv = VecNormalize.load(saved_model + '_stat.pkl', SubprocVecEnv([lambda: UnstableGraspEnv()]))
+        venv = VecNormalize.load(saved_model + '_stat.pkl', None)  # vec_normalize.py line309 "if venv is not None:"
         venv.training = False
         # env = UnstableGraspEnv(render_style='record')
         # env = UnstableGraspEnv(render_style='loop')
