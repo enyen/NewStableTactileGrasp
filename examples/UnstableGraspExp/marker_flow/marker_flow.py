@@ -4,26 +4,38 @@ import signal
 import warnings
 import numpy as np
 from threading import Thread
-from matcher import Matching
+from einops import rearrange
+from .matcher import Matching
 
 
 class MarkerFlow:
-    def __init__(self, fps=30):
+    def __init__(self, fps=30, cam_idx=[-1, -1]):
         # init param
         self.fps = fps
-        self.cam_idx = [-1, -1]
+        self.cam_idx = cam_idx
         self.running = False
+        self.started = False
         self.collection = None
         self.process = Thread()
 
         # init process
         signal.signal(signal.SIGINT, self._signal_stop)
-        self.get_cam_idx()
+        if cam_idx == [-1, -1]:
+            self.get_cam_idx()
+        self.caml = cv2.VideoCapture(self.cam_idx[0])
+        self.camr = cv2.VideoCapture(self.cam_idx[1])
+        self.caml.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+        self.camr.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+        self.caml.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        self.camr.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        self.caml.set(cv2.CAP_PROP_FPS, fps)
+        self.camr.set(cv2.CAP_PROP_FPS, fps)
 
     def get_cam_idx(self):
         self.cam_idx = [-1, -1]
         self._inspect_cam()  # get cam1 id
         self._inspect_cam()  # get cam2 id
+        print("camera idx:", self.cam_idx)
         assert self.cam_idx[0] != -1 and self.cam_idx[1] != -1, (
             'Camera id {} undefined(-1)!'.format(self.cam_idx))
 
@@ -34,21 +46,27 @@ class MarkerFlow:
             cam = cv2.VideoCapture(i)
             if not cam.isOpened():
                 continue
-            for j in range(3 * 30):
+            fps = int(cam.get(cv2.CAP_PROP_FPS))
+            for j in range(3 * fps):
                 _, frame = cam.read()
                 cv2.imshow('Identify Image source(left/right) for 3 seconds...', frame)
-                cv2.waitKey(1000 // 30)
+                cv2.waitKey(1000 // fps)
             print(frame.shape)
             cam.release()
             cv2.destroyAllWindows()
-            idx = input('Enter "0" for left sensor, or "1" fo right sensor: ')
+            idx = input('Enter "0" for left sensor, "1" for right sensor, or "-1" to skip camera: ')
+            if int(idx) == -1:
+                continue
             self.cam_idx[int(idx)] = i
             break
 
     def start(self, vis=False):
         if not self.process.is_alive():
+            self.started = False
             self.process = Thread(target=self._run, args=(vis,))
             self.process.start()
+            while not self.started:
+                time.sleep(0.1)
         else:
             warnings.warn("Process already started!")
 
@@ -61,7 +79,7 @@ class MarkerFlow:
         else:
             warnings.warn("No active process to stop!")
 
-    def _run(self, debug):
+    def _run(self, debug=False, collect=True):
         self.running = True
         flows = []
 
@@ -73,18 +91,11 @@ class MarkerFlow:
                             x0_=25, y0_=30,
                             dx_=38, dy_=38)
 
-        # camera
-        caml = cv2.VideoCapture(self.cam_idx[0])
-        camr = cv2.VideoCapture(self.cam_idx[1])
-        caml.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-        camr.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-        caml.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-        camr.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        # loop
         while self.running:
             # image
-            tick = time.time()
-            imgl = caml.read()[1]
-            imgr = camr.read()[1]
+            imgl = self.caml.read()[1]
+            imgr = self.camr.read()[1]
             imgl = cv2.resize(imgl, (320, 240), interpolation=cv2.INTER_AREA).astype(np.uint8)
             imgr = cv2.resize(imgr, (320, 240), interpolation=cv2.INTER_AREA).astype(np.uint8)
             imgl = cv2.rotate(imgl, cv2.ROTATE_90_CLOCKWISE)
@@ -99,7 +110,9 @@ class MarkerFlow:
             matcherr.run()
             flowl = matcherl.get_flow()
             flowr = matcherr.get_flow()
-            flows.append(self._convert_flows(flowl, flowr))
+            if collect:
+                self.started = True
+                flows.append((flowl, flowr))
 
             # debug view
             if debug:
@@ -112,17 +125,44 @@ class MarkerFlow:
                 cv2.imshow('flow_right', imgr)
                 cv2.waitKey(1)
 
-            # wait camera frame-rate
-            time.sleep(max(1. / 30 - (time.time() - tick), 0))  # 30hz
-
-        caml.release()
-        camr.release()
         cv2.destroyAllWindows()
         self.running = False
-        self.collection = np.stack(flows, axis=0)  # [t s c h w]
+        self.collection = flows
 
     def get_marker_flow(self):
-        return self.collection.copy()
+        flows = []
+        for f in self.collection:
+            flows.append(self._convert_flows(f[0], f[1]))
+        flows = np.stack(flows, axis=0)  # [t s c h w]
+        flows = self.normalize_flow(flows)
+        return flows
+
+    @staticmethod
+    def _marker_center(frame):
+        area_l, area_h = 6, 64
+
+        # mask
+        # subtract the surrounding pixels to magnify difference between markers and background
+        mask = cv2.GaussianBlur(frame, (31, 31), 0).astype(np.float32) - cv2.GaussianBlur(frame, (3, 3), 0)
+        mask = np.clip(mask * 8, 0, 255).astype(np.uint8)
+        mask = cv2.inRange(mask, (200, 200, 200), (255, 255, 255))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+
+        # center
+        ctrs = []
+        contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if len(contours[0]) < 19:  # if too little markers, then give up
+            print("Too less markers detected: ", len(contours))
+            return ctrs
+
+        for contour in contours[0]:
+            x, y, w, h = cv2.boundingRect(contour)
+            area = cv2.contourArea(contour)
+            if (area_l < area < area_h) and (np.max([w, h]) * 1.0 / np.min([w, h]) < 2):
+                t = cv2.moments(contour)
+                centroid = [t['m10'] / t['m00'], t['m01'] / t['m00']]
+                ctrs.append(centroid)
+        return ctrs
 
     @staticmethod
     def _convert_flows(fl, fr):
@@ -141,33 +181,6 @@ class MarkerFlow:
         return flow
 
     @staticmethod
-    def _marker_center(frame):
-        area_l, area_h = 6, 64
-
-        # mask
-        # subtract the surrounding pixels to magnify difference between markers and background
-        mask = cv2.GaussianBlur(frame, (31, 31), 0).astype(np.float32) - cv2.GaussianBlur(frame, (5, 5), 0)
-        mask = np.clip(mask * 8, 0, 255).astype(np.uint8)
-        mask = cv2.inRange(mask, (200, 200, 200), (255, 255, 255))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
-
-        # center
-        ctrs = []
-        contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if len(contours[0]) < 19:  # if too little markers, then give up
-            print("Too less markers detected: ", len(contours))
-            return ctrs
-
-        for contour in contours[0]:
-            x, y, w, h = cv2.boundingRect(contour)
-            area = cv2.contourArea(contour)
-            if (area_l < area < area_h) and (abs(np.max([w, h]) * 1.0 / np.min([w, h]) - 1) < 1):
-                t = cv2.moments(contour)
-                centroid = [t['m10'] / t['m00'], t['m01'] / t['m00']]
-                ctrs.append(centroid)
-        return ctrs
-
-    @staticmethod
     def _draw_flow(frame, flow):
         Ox, Oy, Cx, Cy, Occupied = flow
         for i in range(len(Ox)):
@@ -179,6 +192,15 @@ class MarkerFlow:
                     color = (127, 127, 255)
                 cv2.arrowedLine(frame, pt1, pt2, color, 2, tipLength=0.2)
 
+    @staticmethod
+    def normalize_flow(flow):
+        t, s, c, h, w = flow.shape
+        flow = rearrange(flow, 't s c h w -> (t s h w) c')
+        mag = np.linalg.norm(flow, axis=-1).max()
+        flow = flow / ((mag + 1e-5) / 30.)
+        flow = rearrange(flow, '(t s h w) c -> t s c h w', t=t, s=s, c=c, h=h, w=w)
+        return flow
+
     def _signal_stop(self, signum, frame):
         self.running = False
 
@@ -186,4 +208,5 @@ class MarkerFlow:
 if __name__ == "__main__":
     mf = MarkerFlow()
     mf.start()
+    mf.stop()
     print(mf.get_marker_flow().shape)

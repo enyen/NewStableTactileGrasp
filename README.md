@@ -9,9 +9,9 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
 3. Create conda environment 
 
    ```
-   conda create -n tactile_sim python=3.10
+   conda create -n tactile_sim python=3.9
    conda activate tactile_sim
-   pip install torch torchvision opencv-python einops stable_baselines3 tensorboard scipy pyyaml tqdm rich
+   pip install torch torchvision opencv-python einops stable_baselines3 tensorboard scipy pyyaml tqdm rich mathplotlib pybind11 math3d=3.4.1 git+https://github.com/enyen/python-urx
    ```
 
 5. Install `DiffRedMax`
@@ -23,7 +23,7 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
 
 ## Run the examples
 
-### Taactile Unstable Grasp
+### Tactile Unstable Grasp
 
 ```commandline
 cd examples/UnstableGraspExp
@@ -31,6 +31,12 @@ cd examples/UnstableGraspExp
 python train_sb3.py
 # testing using model saved in ug_datetime
 python train_sb3.py ./storage/ug_datetime
+```
+
+### On real UR5 Robot
+```commandline
+cd examples/UnstableGraspExp
+python test_ur5.py ./storage/ug_datetime
 ```
 
 <p align="center">
