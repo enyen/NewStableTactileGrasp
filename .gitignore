@@ -2,3 +2,4 @@ __pycache__/
 .idea/*
 examples/*/storage/*
 examples/*/log/*
+externals
