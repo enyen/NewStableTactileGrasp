@@ -9,13 +9,14 @@ from .matcher import Matching
 
 
 class MarkerFlow:
-    def __init__(self, fps=20, cam_idx=[-1, -1]):
+    def __init__(self, cam_idx=[-1, -1], tactile_norm=1):
         # init param
-        self.fps = fps
+        self.fps = 20
         self.cam_idx = cam_idx
         self.running = False
         self.started = False
         self.collection = None
+        self.tactile_norm = tactile_norm
         self.process = Thread()
 
         # init process
@@ -28,8 +29,8 @@ class MarkerFlow:
         self.camr.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         self.caml.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         self.camr.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-        self.caml.set(cv2.CAP_PROP_FPS, fps)
-        self.camr.set(cv2.CAP_PROP_FPS, fps)
+        self.caml.set(cv2.CAP_PROP_FPS, self.fps)
+        self.camr.set(cv2.CAP_PROP_FPS, self.fps)
 
     def get_cam_idx(self):
         self.cam_idx = [-1, -1]
@@ -85,19 +86,19 @@ class MarkerFlow:
 
         # matcher
         matcherl = Matching(N_=8, M_=6, fps_=self.fps,
-                            x0_=25, y0_=30,
-                            dx_=38, dy_=38)
+                            x0_=31, y0_=37,
+                            dx_=48, dy_=48)
         matcherr = Matching(N_=8, M_=6, fps_=self.fps,
-                            x0_=25, y0_=30,
-                            dx_=38, dy_=38)
+                            x0_=31, y0_=37,
+                            dx_=48, dy_=48)
 
         # loop
         while self.running:
             # image
             imgl = self.caml.read()[1]
             imgr = self.camr.read()[1]
-            imgl = cv2.resize(imgl, (320, 240), interpolation=cv2.INTER_AREA).astype(np.uint8)
-            imgr = cv2.resize(imgr, (320, 240), interpolation=cv2.INTER_AREA).astype(np.uint8)
+            imgl = cv2.resize(imgl, (400, 300), interpolation=cv2.INTER_LINEAR)
+            imgr = cv2.resize(imgr, (400, 300), interpolation=cv2.INTER_LINEAR)
             imgl = cv2.rotate(imgl, cv2.ROTATE_90_CLOCKWISE)
             imgr = cv2.rotate(imgr, cv2.ROTATE_90_CLOCKWISE)
 
@@ -118,9 +119,10 @@ class MarkerFlow:
             if debug:
                 self._draw_flow(imgl, flowl)
                 self._draw_flow(imgr, flowr)
-                for ctrs in zip(ctrl, ctrr):
-                    cv2.circle(imgl, (int(ctrs[0][0]), int(ctrs[0][1])), 10, (255, 255, 255), 2, 6)
-                    cv2.circle(imgr, (int(ctrs[1][0]), int(ctrs[1][1])), 10, (255, 255, 255), 2, 6)
+                for ctrs in ctrl:
+                    cv2.circle(imgl, (int(ctrs[0]), int(ctrs[1])), 10, (255, 255, 255), 2, 6)
+                for ctrs in ctrr:
+                    cv2.circle(imgr, (int(ctrs[0]), int(ctrs[1])), 10, (255, 255, 255), 2, 6)
                 cv2.imshow('flow_left', imgl)
                 cv2.imshow('flow_right', imgr)
                 cv2.waitKey(1)
@@ -137,16 +139,25 @@ class MarkerFlow:
         flows = self.normalize_flow(flows)
         return flows
 
+    def normalize_flow(self, flow):
+        # t, s, c, h, w = flow.shape
+        # flow = rearrange(flow, 't s c h w -> (t s h w) c')
+        # mag = np.linalg.norm(flow, axis=-1).max()
+        # flow = flow / ((mag + 1e-5) / 30.)
+        flow = flow / self.tactile_norm
+        # flow = rearrange(flow, '(t s h w) c -> t s c h w', t=t, s=s, c=c, h=h, w=w)
+        return flow
+
     @staticmethod
     def _marker_center(frame):
-        area_l, area_h = 6, 64
+        area_l, area_h = 42, 95
 
         # mask
         # subtract the surrounding pixels to magnify difference between markers and background
-        mask = cv2.GaussianBlur(frame, (31, 31), 0).astype(np.float32) - cv2.GaussianBlur(frame, (3, 3), 0)
+        mask = cv2.GaussianBlur(frame, (41, 41), 0).astype(np.float32) - cv2.GaussianBlur(frame, (3, 3), 0)
         mask = np.clip(mask * 8, 0, 255).astype(np.uint8)
         mask = cv2.inRange(mask, (200, 200, 200), (255, 255, 255))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7)))
 
         # center
         ctrs = []
@@ -158,7 +169,7 @@ class MarkerFlow:
         for contour in contours[0]:
             x, y, w, h = cv2.boundingRect(contour)
             area = cv2.contourArea(contour)
-            if (area_l < area < area_h) and (np.max([w, h]) * 1.0 / np.min([w, h]) < 2):
+            if (area_l <= area <= area_h) and (np.max([w, h]) * 1.0 / np.min([w, h]) < 2):
                 t = cv2.moments(contour)
                 centroid = [t['m10'] / t['m00'], t['m01'] / t['m00']]
                 ctrs.append(centroid)
@@ -192,21 +203,17 @@ class MarkerFlow:
                     color = (127, 127, 255)
                 cv2.arrowedLine(frame, pt1, pt2, color, 2, tipLength=0.2)
 
-    @staticmethod
-    def normalize_flow(flow):
-        t, s, c, h, w = flow.shape
-        flow = rearrange(flow, 't s c h w -> (t s h w) c')
-        mag = np.linalg.norm(flow, axis=-1).max()
-        flow = flow / ((mag + 1e-5) / 30.)
-        flow = rearrange(flow, '(t s h w) c -> t s c h w', t=t, s=s, c=c, h=h, w=w)
-        return flow
-
     def _signal_stop(self, signum, frame):
         self.running = False
 
 
 if __name__ == "__main__":
     mf = MarkerFlow()
-    mf.start()
-    mf.stop()
-    print(mf.get_marker_flow().shape)
+
+    # debugging
+    mf._run(debug=True, collect=False)
+
+    # collecting
+    # mf.start()
+    # mf.stop()
+    # print(mf.get_marker_flow().shape)

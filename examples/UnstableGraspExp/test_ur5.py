@@ -14,7 +14,7 @@ sys.path.append(base_dir)
 
 
 class RobUR5:
-    def __init__(self, ip_robot='10.10.10.1'):
+    def __init__(self, cam_idx=[-1, -1], tactile_norm=1, ip_robot='10.10.10.1'):
         """
         set_tcp with m3d.Orientation.new_euler((a, b, c), 'xyz').rotation_vector
         tcp x: out from tool, y: left of tool, z: forward of tool
@@ -25,15 +25,16 @@ class RobUR5:
         self.rob.set_tcp((0, 0, 0.23, 1.2092, -1.2092, 1.2092))
         self.rob.set_payload(1.0)
         self.gripper = Robotiq_Two_Finger_Gripper(self.rob)
-        self.tactile = MarkerFlow(cam_idx=[4, 7])
+        self.tactile = MarkerFlow(cam_idx=cam_idx, tactile_norm=tactile_norm)
 
         # env param
         self.homej = [1.20595, -1.37872, -2.03732, -1.29741, 1.57073, 1.99222]
         self.grip_height = 0.02
-        self.grip_offset = 123
+        self.grip_offset = 127
         self.mul_pos = 0.1
-        self.mul_width = 5  # [120, 130] [13.5mm, 18.5mm] [17g, 92g]
+        self.mul_width = 4  # [13.5mm, 18.5mm] [17g, 92g] [123, 131]
         self.grip_pos, self.grip_width = 0, 0
+        self.num_frame = 11
 
     def disconnect(self):
         self.rob.close()
@@ -88,8 +89,8 @@ class RobUR5:
         self.move_tcp_relative([0, 0, grip_pos_ - self.grip_pos])          # pre-grasp
         self.move_gripper(int(self.grip_width + self.grip_offset))         # gripper close
         self.tactile.start()                                               # tactile start
-        self.move_tcp_relative([-self.grip_height, 0, 0], 0.1, 0.02)      # move up 1.0s
-        time.sleep(0.5)                                                    # wait 0.5s
+        self.move_tcp_relative([-self.grip_height, 0, 0], 0.1, 0.014)      # move up 1.5s
+        time.sleep(1.0)                                                    # wait 0.5s
         self.tactile.stop()                                                # tactile stop
         self.move_tcp_relative([self.grip_height, 0, 0])                   # move down
         self.move_gripper(0)                                               # gripper open
@@ -97,33 +98,72 @@ class RobUR5:
         print(self.grip_pos, self.grip_width)
 
         # observation
-        obs = self.tactile.get_marker_flow()
-        obs = obs[np.linspace(0, obs.shape[0] - 1, 7).round().astype(int)]
+        obs = self.get_obs()
         return obs
+
+    def get_obs(self):
+        obs = self.tactile.get_marker_flow()
+
+        # specific frame in the timestamp
+        # obs = obs[np.linspace(0, obs.shape[0] - 1, self.num_frame).round().astype(int)]
+        # return obs
+
+        # averaged frames in the timestamp neighborhood
+        step = obs.shape[0] * 1.0 / self.num_frame
+        obs_ = []
+        for i in range(self.num_frame):
+            obs_.append(obs[int(np.round(i * step)):int(np.round((i + 1) * step))].mean(axis=0))
+        return np.stack(obs, axis=0)
 
 
 if __name__ == "__main__":
     """
-    python test_ur5.py ./storage/ug_09-16_00-00
+    python test_ur5.py ./storage/ug_datetime
     """
-
-    # init model
+    # init model, robot
     model = SAC.load(sys.argv[1] + "_model")
-    venv = VecNormalize.load(sys.argv[1] + '_stat.pkl', None)
-    venv.training = False
-
-    # init robot
-    rob = RobUR5()
+    rob = RobUR5(cam_idx=[6, 4], tactile_norm=5.1)
 
     # running
     for i in range(3):
         rob.reset()
         obs = rob.step()
         while True:
-            action = model.predict(venv.normalize_obs(obs), deterministic=True)[0]
+            action = model.predict(obs, deterministic=True)[0]
             obs = rob.step(*action)
             if input('Terminated (y/n) ?') == 'y':
                 break
 
     # closing
     rob.disconnect()
+
+
+
+    """
+    compute normalization for real tactile sensors  
+    """
+    # from einops import rearrange
+    #
+    # # init model, robot
+    # model = SAC.load(sys.argv[1] + "_model")
+    # rob = RobUR5(cam_idx=[6, 4], taactile_norm=5.1)
+    # obss = []
+    #
+    # # running
+    # for i in range(3):
+    #     rob.reset()
+    #     obs = rob.step()
+    #     while True:
+    #         action = np.random.uniform(-1, 1, 2)
+    #         obs = rob.step(*action)
+    #         obss.append(obs)
+    #         if input('Terminated (y/n) ?') == 'y':
+    #             break
+    #
+    # obss = np.concatenate(obss, axis=0)
+    # obss = obss[:, 0:1]
+    # obss = rearrange(obss, 't s c w h -> (t s w h) c')
+    # print(obss.mean(axis=0), obss.std(axis=0))
+    #
+    # # closing
+    # rob.disconnect()
