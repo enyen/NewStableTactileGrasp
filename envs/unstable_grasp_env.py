@@ -35,7 +35,7 @@ class UnstableGraspEnv(gym.Env):
             self._np_random, seed = seeding.np_random(seed)
 
         # observation
-        self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 7, 2, 2, 8, 6
+        self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols = 11, 1, 2, 8, 6
         ndof_obs = (self.tactile_samples, self.tactile_sensors, self.tactile_dim, self.tactile_rows, self.tactile_cols)
         self.observation_space = gym.spaces.Box(low=np.full(ndof_obs, -10),
                                                 high=np.full(ndof_obs, 10), dtype=np.float32)
@@ -52,6 +52,9 @@ class UnstableGraspEnv(gym.Env):
         self.info_buf = {}
         self.i_steps = 0
         self.acc_reward = 0
+        self.hand_q = 0.
+        self.finger_q = 0.
+        _ = self.reset()
 
     def reset(self, seed=None, options=None):
         # randomization
@@ -121,10 +124,12 @@ class UnstableGraspEnv(gym.Env):
         self.finger_q = np.clip(self.finger_q + action[1], -self.finger_bound, self.finger_bound)
         self.grasp()
         truncated = False
+        info = {}
         if self.i_steps == 6 and not self.done_buf:
             truncated = True
+            info["TimeLimit.truncated"] = True
         self.acc_reward += self.reward_buf
-        return self.obs_buf, self.reward_buf, self.done_buf, truncated, {}
+        return self.obs_buf, self.reward_buf, self.done_buf, truncated, info
 
     def grasp(self):
         # action
@@ -142,17 +147,20 @@ class UnstableGraspEnv(gym.Env):
             [0.0, self.hand_q, lift_height, 0.0, finger_q, finger_q],             # rest
             [0.0, self.hand_q, self.hand_height, 0.0, finger_q, finger_q],        # down
         ])
-        num_steps = [80, 10, 200, 100, 50]
+        num_steps = [80, 10, 300, 200, 50]
+        # num_steps = [80, 10, np.random.randint(290, 330), np.random.randint(190, 210), 50]
         actions = []
         for stage in range(len(num_steps)):  # linear interpolation
             for i in range(num_steps[stage]):
                 u = target_qs[stage] + (i + 1) * (target_qs[stage + 1] - target_qs[stage]) / num_steps[stage]
                 actions.append(u)
         actions = np.array(actions)
-        # tactile_mask = np.arange(sum(num_steps)) % 20 == 0
-        # tactile_mask[-num_steps[-1]:] = False
         tactile_mask = np.zeros(sum(num_steps), dtype=bool)
-        tactile_mask[[90, 140, 190, 240, 290, 340, 390]] = True
+        tactile_masks_ = [90, 140, 190, 240, 290, 340, 390, 440, 490, 540, 590]
+        # tactile_masks_ = (num_steps[0] + num_steps[1] +
+        #                   np.linspace(np.random.randint(5), num_steps[2] + num_steps[3] - 1 - np.random.randint(5),
+        #                               self.tactile_samples).round().astype(int)).tolist()
+        tactile_mask[tactile_masks_] = True
         q_mask = np.zeros(sum(num_steps), dtype=bool)
         q_mask[-(num_steps[-3] + num_steps[-2] + num_steps[-1]):-num_steps[-1]] = True
 
@@ -165,10 +173,12 @@ class UnstableGraspEnv(gym.Env):
                                   (0.11 - self.weight_width/2 - 0.001))
 
         # observation
+        tactile_norm = 0.000195
         obs_buf = rearrange(tactiles, 't (s h w d) -> (t s h w) d',
                             t=self.tactile_samples, s=self.tactile_sensors, h=self.tactile_rows, w=self.tactile_cols, d=3)[..., 0:self.tactile_dim]
-        self.obs_buf = rearrange(self.normalize_tactile(obs_buf), '(t s h w) d -> t s d h w',
+        self.obs_buf = rearrange(self.normalize_tactile(obs_buf, tactile_norm), '(t s h w) d -> t s d h w',
                                  t=self.tactile_samples, s=self.tactile_sensors, h=self.tactile_rows, w=self.tactile_cols, d=self.tactile_dim)
+        self.obs_buf = self.obs_buf + np.random.uniform(-tactile_norm / 10, tactile_norm / 10, self.obs_buf.shape)
 
         # reward
         th_rot = -0.005
@@ -178,20 +188,23 @@ class UnstableGraspEnv(gym.Env):
         grip_force = -self.finger_bound - self.finger_q                     # min-0.005
 
         if box_rot > th_rot and box_drop > th_drop:
-            self.reward_buf = (200 +
-                               20000 * grip_force)  # [100:200]
             self.done_buf = True
+            self.reward_buf = (50 +
+                               9000 * grip_force)  # [5:50]
         else:
-            self.reward_buf = (53 * box_rot +
-                               250 * box_drop +
-                               0 * grip_force)      # [(-5-5-0):0]
             self.done_buf = False
+            self.reward_buf = (20 * box_rot +
+                               100 * box_drop +
+                               0 * grip_force)  # [(-2-2-0):0]
 
-    def normalize_tactile(self, tactile_arrays):
-        normalized_tactile_arrays = tactile_arrays.copy()
-        lengths = np.linalg.norm(tactile_arrays, axis=-1)
-        normalized_tactile_arrays = normalized_tactile_arrays / ((np.max(lengths) + 1e-5) / 30.)
-        return normalized_tactile_arrays
+    def normalize_tactile(self, tactile_arrays, tactile_norm):
+        # normalized_tactile_arrays = tactile_arrays.copy()
+        # lengths = np.linalg.norm(tactile_arrays, axis=-1)
+        # normalized_tactile_arrays = normalized_tactile_arrays / ((np.max(lengths) + 1e-5) / 30.)
+        # return normalized_tactile_arrays
+        # tactile_arrays = (tactile_arrays - np.array([1.15030445e-04, -5.32638066e-11])) / np.array([0.00018767, 0.00020825])
+        tactile_arrays = tactile_arrays / tactile_norm
+        return tactile_arrays
 
     def visualize_tactile(self, tactile_array):
         resolution = 40
@@ -267,3 +280,17 @@ class UnstableGraspEnv(gym.Env):
 
     def close(self):
         pass
+
+    def data_stat(self):
+        from rich.progress import track
+        data = []
+        for _ in track(range(64), "Collecting..."):
+            self.reset()
+            obs, _, termi, trunc, _ = self.step(np.random.uniform(-1, 1, 2))
+            data.append(obs)
+            if termi or trunc:
+                self.reset()
+
+        data = np.concatenate(data, axis=0)
+        data = rearrange(data, 't s c h w -> (t s h w) c')
+        print('mean:', data.mean(axis=0), 'std:', data.std(axis=0))

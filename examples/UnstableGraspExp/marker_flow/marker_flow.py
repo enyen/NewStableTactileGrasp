@@ -9,7 +9,7 @@ from .matcher import Matching
 
 
 class MarkerFlow:
-    def __init__(self, fps=30, cam_idx=[-1, -1]):
+    def __init__(self, fps=20, cam_idx=[-1, -1]):
         # init param
         self.fps = fps
         self.cam_idx = cam_idx

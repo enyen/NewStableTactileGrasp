@@ -132,21 +132,23 @@ class TfmerFeaEx(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim):
         super().__init__(observation_space, features_dim)
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
+        d_input = n_c
         self.cnn = nn.Sequential(
-            nn.Conv2d(n_c, n_c * 4, kernel_size=3),
-            nn.BatchNorm2d(n_c * 4),
+            nn.Conv2d(d_input * 1, d_input * 8, kernel_size=3, bias=False, padding=1),
+            nn.BatchNorm2d(d_input * 8),
             nn.SiLU(),
-            nn.Conv2d(n_c * 4, n_c * 8, kernel_size=3),
-            nn.BatchNorm2d(n_c * 8),
+            nn.AdaptiveAvgPool2d((n_h // 2, n_w // 2)),
+            nn.Conv2d(d_input * 8, d_input * 12, kernel_size=3, bias=False),
+            nn.BatchNorm2d(d_input * 12),
             nn.SiLU(),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(n_c * 8, features_dim // n_s),
+            nn.Linear(d_input * 12, features_dim // n_s),
             nn.SiLU()
         )
         self.pos_enc = PositionalEncoding(d_model=features_dim, sizes=n_t, cat_pe=False)
         self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 6,
-                           dropout=0, n_lyr=2)
+                           dropout=0, n_lyr=3)
 
     def forward(self, x):
         b, t, s, c, h, w = x.shape
@@ -164,15 +166,16 @@ class CnnFeaEx(BaseFeaturesExtractor):
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
         d_input = n_c * n_t
         self.model = nn.Sequential(
-            nn.Conv2d(d_input, d_input * 2, kernel_size=3),
+            nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False, padding=1),
             nn.BatchNorm2d(d_input * 2),
             nn.SiLU(),
-            nn.Conv2d(d_input * 2, d_input * 4, kernel_size=3),
-            nn.BatchNorm2d(d_input * 4),
+            nn.AdaptiveMaxPool2d((n_h // 2, n_w // 2)),
+            nn.Conv2d(d_input * 2, d_input * 3, kernel_size=3, bias=False),
+            nn.BatchNorm2d(d_input * 3),
             nn.SiLU(),
-            nn.AdaptiveAvgPool2d(1),
+            # nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(d_input * 4, features_dim // n_s),
+            nn.Linear(d_input * 3 * 2, features_dim // n_s),
             nn.SiLU()
         )
 

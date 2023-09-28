@@ -16,43 +16,45 @@ if __name__ == "__main__":
         # env
         dt = datetime.now().strftime('%m-%d_%H-%M')
         env = make_vec_env(UnstableGraspEnv, n_envs=8, vec_env_cls=SubprocVecEnv)
-        env = VecNormalize(env)
 
         # model
         policy_kwargs = dict(normalize_images=False,
-                             # features_extractor_class=CnnFeaEx,
-                             # features_extractor_kwargs=dict(features_dim=64),
+                             features_extractor_class=CnnFeaEx,
+                             # features_extractor_kwargs=dict(features_dim=128),
                              # net_arch=dict(pi=[128, 128], qf=[128, 128]),
-                             features_extractor_class=TfmerFeaEx,
-                             features_extractor_kwargs=dict(features_dim=32),
+                             features_extractor_kwargs=dict(features_dim=64),
                              net_arch=dict(pi=[64, 64], qf=[64, 64]),
+                             # features_extractor_class=TfmerFeaEx,
+                             # features_extractor_kwargs=dict(features_dim=48),
+                             # net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              share_features_extractor=False)
-        model = SAC("CnnPolicy", env, gradient_steps=-1, device='cpu',
+        model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.999, learning_rate=5e-3,
+                    gradient_steps=-1, target_update_interval=-1, train_freq=(12, 'step'),
                     policy_kwargs=policy_kwargs, tensorboard_log='./log')
-        # print(model.policy)
         model.learn(total_timesteps=20000, progress_bar=True)
-        model.save("./storage/ug_{}_model".format(dt))
-        env.save("./storage/ug_{}_stat.pkl".format(dt))
+        model.save('./storage/ug_{}_model'.format(dt))
 
     # testing
     elif len(sys.argv) == 2:
         from matplotlib import pyplot as plt
+        from sklearn.linear_model import LinearRegression
         import numpy as np
 
         epi_test = 200
         saved_model = sys.argv[1]
-        venv = VecNormalize.load(saved_model + '_stat.pkl', None)  # vec_normalize.py line309 "if venv is not None:"
-        venv.training = False
+        # venv = VecNormalize.load(saved_model + '_stat.pkl', None)  # vec_normalize.py line309 "if venv is not None:"
+        # venv.training = False
         # env = UnstableGraspEnv(render_style='record')
         # env = UnstableGraspEnv(render_style='loop')
         env = UnstableGraspEnv(render_style='None')
-        model = SAC.load(saved_model + "_model", env)
+        model = SAC.load(saved_model + '_model', env)
         obs, _ = env.reset()
         env.render()
         lengths, rewards, weight_force, truncation = [], [], [], []
 
         while True:
-            action, _states = model.predict(venv.normalize_obs(obs), deterministic=True)
+            # action, _states = model.predict(venv.normalize_obs(obs), deterministic=True)
+            action, _states = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
             env.render()
             if terminated or truncated:
@@ -80,16 +82,28 @@ if __name__ == "__main__":
 
         # epi length
         print('Success Rate: {:03f}'.format(succeed.sum() * 1.0 / epi_test))
-        print('Epi length: [Min, Avg, Max] = [{}, {:03f}, {}]'.format(
+        print('Epi length (Min, Avg, Max) = ({}, {:03f}, {})'.format(
             lengths.min(), lengths.mean(), lengths.max()))
+        plt.text(0.55, 0.3, 'success: {:.03f}'.format(succeed.sum() * 1.0 / epi_test))
 
         # weight:force
-        lengths = lengths - lengths.min()
-        clr = np.stack((lengths / lengths.max(), 1. - (lengths / lengths.max()), np.zeros_like(lengths)), axis=1)
-        plt.scatter(weight_force[:, 0] * 1000, weight_force[:, 1] * 1000 + 2.5, c=clr)
-        plt.title("Grip force against load weight.")
-        plt.xlabel("Load Weight (gram)")
-        plt.ylabel("Gripping Distance (mm)")
-        plt.xlim(17, 92)
-        plt.ylim(0, 5.1)
+        rng_weight, rng_force = [17, 92], [0, 5]
+        weights = (weight_force[:, 0] * 1000 - rng_weight[0]) / (rng_weight[1] - rng_weight[0])
+        forces = (weight_force[:, 1] * 1000 - rng_force[0] + 2.5) / (rng_force[1] - rng_force[0])
+        lens = lengths - lengths.min()
+        clr = np.stack((lens / lens.max(), 1. - (lens / lens.max()), np.zeros_like(lens)), axis=1)
+        plt.scatter(weights, forces, c=clr)
+        plt.text(0.36, 0.1, 'Epis length (min, avg, max): {}, {:.03f}, {}'.format(lengths.min(), lengths.mean(), lengths.max()))
+
+        reg = LinearRegression().fit(weights[:, None], forces)
+        print('Line gradient: {:.04f}'.format(reg.coef_.squeeze()))
+        plt.plot([0, 1], reg.predict([[0], [1]]).flatten())
+        plt.text(0.40, 0.2, 'gradient: {:.03f}'.format(reg.coef_.squeeze()))
+        plt.text(0.7, 0.2, 'y-intercept: {:.03f}'.format(reg.intercept_.squeeze()))
+
+        plt.title('Grip force against load weight.')
+        plt.xlabel('Load Weight')
+        plt.ylabel('Gripping Distance')
+        plt.xlim(0, 1.05)
+        plt.ylim(0, 1.05)
         plt.show()

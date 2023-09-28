@@ -28,10 +28,10 @@
             <body name="finger_left" type="mesh" filename="gelslim_left.obj" pos="0 0 0" quat="1 0 0 0"
                   rgba="0.1 0.1 0.1 0" transform_type="OBJ_TO_WORLD"/>
             <link name="tactile_pad_left">
-              <joint name="tactile_pad_left_joint" type="fixed" pos="0.004 0 0.1472" quat="0.707 0 0.707 0"/>
-              <body name="tactile_pad_left" type="cylinder" density="1" radius="0.018" length="0.003" pos="0 0 0"
-                    quat="1 0 0 0" rgba="0.4 0.4 0.4 0" general_contact_angle_resolution="8"
-                    general_contact_radius_resolution="4"/>
+              <joint name="tactile_pad_left_joint" type="fixed" pos="0.004 0 0.151" quat="0.707 0 0.707 0"/>
+              <body name="tactile_pad_left" type="cuboid" size="0.020 0.016 0.003" density="1" pos="0 0 0"
+                      quat="1 0 0 0" rgba="0.1 0.1 0.9 0" general_contact_angle_resolution="8"
+                      general_contact_radius_resolution="4"/>
             </link>
           </link>
         </link>
@@ -44,10 +44,10 @@
             <body name="finger_right" type="mesh" filename="gelslim_right.obj" pos="0 0 0" quat="1 0 0 0"
                   rgba="0.1 0.1 0.1 0" transform_type="OBJ_TO_WORLD"/>
             <link name="tactile_pad_right">
-              <joint name="tactile_pad_right_joint" type="fixed" pos="0.004 0 0.1472" quat="0.707 0 0.707 0"/>
-              <body name="tactile_pad_right" type="cylinder" density="1" radius="0.018" length="0.003" pos="0 0 0"
-                    quat="1 0 0 0" rgba="0.4 0.4 0.4 0" general_contact_angle_resolution="8"
-                    general_contact_radius_resolution="4"/>
+              <joint name="tactile_pad_right_joint" type="fixed" pos="0.004 0 0.151" quat="0.707 0 0.707 0"/>
+                <body name="tactile_pad_right" type="cuboid" size="0.020 0.016 0.003" density="1" pos="0 0 0"
+                      quat="1 0 0 0" rgba="0.9 0.1 0.1 0" general_contact_angle_resolution="8"
+                      general_contact_radius_resolution="4"/>
             </link>
           </link>
         </link>
@@ -62,12 +62,12 @@
             general_contact_resolution="3 3 2" rgba="0.3 0.2 0.05 0"/>
       <link name="box_l">
         <joint name="box_l" type="fixed" pos="0 0.115 0.025" quat="1 0 0 0" damping="0.0"/>
-        <body name="box_l" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="1"
+        <body name="box_l" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="25"
               general_contact_resolution="3 3 2" rgba="0.45 0.45 0.4 0"/>
       </link>
       <link name="box_r">
         <joint name="box_r" type="fixed" pos="0 -0.115 0.025" quat="1 0 0 0" damping="0.0"/>
-        <body name="box_r" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="1"
+        <body name="box_r" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="25"
               general_contact_resolution="3 3 2" rgba="0.45 0.45 0.4 0"/>
       </link>
     </link>
@@ -75,8 +75,8 @@
 
   <robot>
     <link name="weight">
-      <joint name="weight" type="free3d" pos="0 0 0.041" quat="1 0 0 0" damping="0.0"/>
-      <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="3450"
+      <joint name="weight" type="free3d" pos="0 0 0.04" quat="1 0 0 0" damping="0.0"/>
+      <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="2500"
             general_contact_resolution="3 3 2" rgba="0.3 0.1 0.07 0"/>
     </link>
   </robot>
@@ -85,9 +85,9 @@
     <ground_contact body="box" kn="1e3" kt="1" mu="0.8" damping="0.003"/>
     <general_primitive_contact general_body="tactile_pad_left" primitive_body="box" kn="8e3" kt="80." mu="1.5" damping="1e3" render="false"/>
     <general_primitive_contact general_body="tactile_pad_right" primitive_body="box" kn="8e3" kt="80." mu="1.5" damping="1e3" render="false"/>
-    <general_primitive_contact primitive_body="box" general_body="weight" mu="0.08"/>
-    <general_primitive_contact general_body="box_l" primitive_body="weight" kt="100."/>
-    <general_primitive_contact general_body="box_r" primitive_body="weight" kt="100." />
+    <general_primitive_contact primitive_body="box" general_body="weight" mu="0.1"/>
+    <general_primitive_contact general_body="box_l" primitive_body="weight"/>
+    <general_primitive_contact general_body="box_r" primitive_body="weight"/>
   </contact>
 
   <actuator>
@@ -98,10 +98,10 @@
   </actuator>
 
   <sensor>
-    <tactile body="tactile_pad_left" name="tactile_pad_left" type="rect_array" rect_pos0="0.007 0.00675 0.0015"
-             rect_pos1="-0.011 -0.00675 0.0015" axis0="-1 0 0" axis1="0 -1 0" resolution="8 6" render="true"/>
-    <tactile body="tactile_pad_right" name="tactile_pad_right" type="rect_array" rect_pos0="0.007 0.00675 0.0015"
-             rect_pos1="-0.011 -0.00675 0.0015" axis0="-1 0 0" axis1="0 -1 0" resolution="8 6" render="true"/>
+    <tactile body="tactile_pad_left" name="tactile_pad_left" type="rect_array" rect_pos0="0.007 0.005 0.0015"
+             rect_pos1="-0.007 -0.005 0.0015" axis0="-1 0 0" axis1="0 -1 0" resolution="8 6" render="true"/>
+<!--    <tactile body="tactile_pad_right" name="tactile_pad_right" type="rect_array" rect_pos0="0.007 0.005 0.0015"-->
+<!--             rect_pos1="-0.007 -0.005 0.0015" axis0="-1 0 0" axis1="0 -1 0" resolution="8 6" render="true"/>-->
   </sensor>
 
 </redmax>
