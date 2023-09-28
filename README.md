@@ -24,20 +24,29 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
 ## Run the examples
 
 ### Tactile Unstable Grasp
-
+Training in simulation.
 ```commandline
 cd examples/UnstableGraspExp
-# training
 python train_sb3.py
-# testing using model saved in ug_datetime
-python train_sb3.py ./storage/ug_datetime
 ```
 
-### On real UR5 Robot
+Testing in simulation using model saved in _ug_datetime_.
 ```commandline
 cd examples/UnstableGraspExp
-python test_ur5.py ./storage/ug_datetime
+python train_sb3.py ./storage/ug_datetime
 ```
 
 <p align="center">
     <img src="envs/assets/unstable_grasp/unstable_grasp.gif" alt="unstable_grasp" width="500" /></p>
+
+### On real UR5 & Sensor
+Build marker flow library (adopted from [source](https://github.com/GelSight/tracking)).
+```commandline
+cd examples/UnstableGraspExp/marker_flow
+make
+```
+Run on hardware.
+```commandline
+cd examples/UnstableGraspExp
+python test_ur5.py ./storage/ug_datetime
+```
