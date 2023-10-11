@@ -97,7 +97,7 @@ class UnstableGraspEnv(gym.Env):
 
         self.hand_height = self.np_random.uniform(*finger_height_range)
         self.weight_pos = self.np_random.uniform(*weight_pos_range)
-        weight_width = self.np_random.uniform(*weight_width_range)
+        self.weight_width = self.np_random.uniform(*weight_width_range)
         weight_density = self.np_random.uniform(*weight_density_range)
         weight_mu = self.np_random.uniform(*weight_mu_range)
         # contact_kn = self.np_random.uniform(*contact_kn_range)
@@ -112,8 +112,8 @@ class UnstableGraspEnv(gym.Env):
         self.sim.update_body_color('weight', tuple(self.np_random.uniform(0, 1, 3)))
         self.sim.update_body_density('weight', weight_density)
         self.sim.update_contact_parameters('weight', 'box', mu=weight_mu, kn=5e3, kt=1e2, damping=1e2)
-        self.sim.update_body_size('weight', (0.025, weight_width, 0.02))
-        self.weight_weight = 0.025 * weight_width * 0.02 * weight_density
+        self.sim.update_body_size('weight', (0.025, self.weight_width, 0.02))
+        self.weight_weight = 0.025 * self.weight_width * 0.02 * weight_density
         # self.sim.update_contact_parameters('tactile_pad_left', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
         # self.sim.update_contact_parameters('tactile_pad_right', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
         # self.sim.update_tactile_parameters('tactile_pad_left', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
@@ -170,7 +170,9 @@ class UnstableGraspEnv(gym.Env):
         q_init = np.array([0, self.hand_q, self.hand_height, init_finger, init_finger,
                            0,0,0, 0,0,0,
                            0,self.weight_pos,0, 0,0,0])
-        weight_pos, box_orien, gripper_height, box_height, tactiles = self.sim_epi_forward(q_init, actions, tactile_mask, q_mask)
+        weight_pos, box_orien, gripper_height, box_height, tactiles = (
+            self.sim_epi_forward(q_init, actions, tactile_mask, q_mask))
+        self.weight_pos = np.clip(weight_pos[-1], -(0.11 - self.weight_width / 2), (0.11 - self.weight_width / 2))
 
         # observation
         obs_buf = tactiles - tactiles[0:1]
