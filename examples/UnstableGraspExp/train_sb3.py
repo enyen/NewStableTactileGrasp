@@ -87,7 +87,7 @@ if __name__ == "__main__":
         plt.text(0.55, 0.3, 'success: {:.03f}'.format(succeed.sum() * 1.0 / epi_test))
 
         # weight:force
-        rng_weight, rng_force = [17, 92], [0, 5]
+        rng_weight, rng_force = [25, 100], [0, 5]
         weights = (weight_force[:, 0] * 1000 - rng_weight[0]) / (rng_weight[1] - rng_weight[0])
         forces = (weight_force[:, 1] * 1000 - rng_force[0] + 2.5) / (rng_force[1] - rng_force[0])
         lens = lengths - lengths.min()

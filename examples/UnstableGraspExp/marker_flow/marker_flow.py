@@ -24,21 +24,21 @@ class MarkerFlow:
         if cam_idx == [-1, -1]:
             self.get_cam_idx()
         self.caml = cv2.VideoCapture(self.cam_idx[0])
-        self.camr = cv2.VideoCapture(self.cam_idx[1])
+        # self.camr = cv2.VideoCapture(self.cam_idx[1])
         self.caml.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-        self.camr.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+        # self.camr.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         self.caml.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-        self.camr.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        # self.camr.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         self.caml.set(cv2.CAP_PROP_FPS, self.fps)
-        self.camr.set(cv2.CAP_PROP_FPS, self.fps)
+        # self.camr.set(cv2.CAP_PROP_FPS, self.fps)
 
     def get_cam_idx(self):
         self.cam_idx = [-1, -1]
         self._inspect_cam()  # get cam1 id
-        self._inspect_cam()  # get cam2 id
+        # self._inspect_cam()  # get cam2 id
         print("camera idx:", self.cam_idx)
-        assert self.cam_idx[0] != -1 and self.cam_idx[1] != -1, (
-            'Camera id {} undefined(-1)!'.format(self.cam_idx))
+        # assert self.cam_idx[0] != -1 and self.cam_idx[1] != -1, (
+        #     'Camera id {} undefined(-1)!'.format(self.cam_idx))
 
     def _inspect_cam(self):
         for i in range(8):
@@ -81,6 +81,7 @@ class MarkerFlow:
             warnings.warn("No active process to stop!")
 
     def _run(self, debug=False, collect=True):
+        cnt_dump = 20
         self.running = True
         flows = []
 
@@ -88,43 +89,52 @@ class MarkerFlow:
         matcherl = Matching(N_=8, M_=6, fps_=self.fps,
                             x0_=31, y0_=37,
                             dx_=48, dy_=48)
-        matcherr = Matching(N_=8, M_=6, fps_=self.fps,
-                            x0_=31, y0_=37,
-                            dx_=48, dy_=48)
+        # matcherr = Matching(N_=8, M_=6, fps_=self.fps,
+        #                     x0_=31, y0_=37,
+        #                     dx_=48, dy_=48)
 
         # loop
         while self.running:
+            # dumping frames
+            if cnt_dump > 0:
+                _ = self.caml.read()[1]
+                cnt_dump -= 1
+                continue
+
             # image
-            imgl = self.caml.read()[1]
-            imgr = self.camr.read()[1]
+            good, imgl = self.caml.read()
+            if not good:
+                continue
+            # imgr = self.camr.read()[1]
             imgl = cv2.resize(imgl, (400, 300), interpolation=cv2.INTER_LINEAR)
-            imgr = cv2.resize(imgr, (400, 300), interpolation=cv2.INTER_LINEAR)
+            # imgr = cv2.resize(imgr, (400, 300), interpolation=cv2.INTER_LINEAR)
             imgl = cv2.rotate(imgl, cv2.ROTATE_90_CLOCKWISE)
-            imgr = cv2.rotate(imgr, cv2.ROTATE_90_CLOCKWISE)
+            # imgr = cv2.rotate(imgr, cv2.ROTATE_90_CLOCKWISE)
 
             # marker flow
             ctrl = self._marker_center(imgl)
-            ctrr = self._marker_center(imgr)
+            # ctrr = self._marker_center(imgr)
             matcherl.init(ctrl)
-            matcherr.init(ctrr)
+            # matcherr.init(ctrr)
             matcherl.run()
-            matcherr.run()
+            # matcherr.run()
             flowl = matcherl.get_flow()
-            flowr = matcherr.get_flow()
+            # flowr = matcherr.get_flow()
             if collect:
                 self.started = True
-                flows.append((flowl, flowr))
+                # flows.append((flowl, flowr))
+                flows.append((flowl, flowl))
 
             # debug view
             if debug:
                 self._draw_flow(imgl, flowl)
-                self._draw_flow(imgr, flowr)
+                # self._draw_flow(imgr, flowr)
                 for ctrs in ctrl:
                     cv2.circle(imgl, (int(ctrs[0]), int(ctrs[1])), 10, (255, 255, 255), 2, 6)
-                for ctrs in ctrr:
-                    cv2.circle(imgr, (int(ctrs[0]), int(ctrs[1])), 10, (255, 255, 255), 2, 6)
+                # for ctrs in ctrr:
+                #     cv2.circle(imgr, (int(ctrs[0]), int(ctrs[1])), 10, (255, 255, 255), 2, 6)
                 cv2.imshow('flow_left', imgl)
-                cv2.imshow('flow_right', imgr)
+                # cv2.imshow('flow_right', imgr)
                 cv2.waitKey(1)
 
         cv2.destroyAllWindows()
@@ -185,10 +195,10 @@ class MarkerFlow:
             e.g. Occupied[i][j] = k, meaning the marker mc[k] lies in row i, column j.
         :return drow_dcol in shape [s c h w], s:sensor(l,r), c:channel(drow,dcol), h:height, w:width
         """
-        fl = np.asarray(fl)
-        fr = np.asarray(fr)
-        flow = np.stack((np.stack((fl[2] - fl[0], fl[3] - fl[1]), axis=0),
-                         np.stack((fr[2] - fr[0], fr[3] - fr[1]), axis=0)), axis=0)
+        fl = np.asarray(fl[:-1])
+        fr = np.asarray(fr[:-1])
+        flow = np.stack((np.stack((fl[3] - fl[1], fl[2] - fl[0]), axis=0),
+                         np.stack((fr[3] - fr[1], fr[2] - fr[0]), axis=0)), axis=0)
         return flow
 
     @staticmethod

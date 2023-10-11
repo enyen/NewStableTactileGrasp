@@ -1,6 +1,7 @@
 """
 pip install git+https://github.com/enyen/python-urx
 """
+import cv2
 import numpy as np
 import urx
 import time
@@ -30,7 +31,9 @@ class RobUR5:
         # env param
         self.homej = [1.20595, -1.37872, -2.03732, -1.29741, 1.57073, 1.99222]
         self.grip_height = 0.02
-        self.grip_offset = 127
+        self.grip_offset = 129
+        self.bou_pos = 0.09
+        self.bou_width = 4
         self.mul_pos = 0.1
         self.mul_width = 4  # [13.5mm, 18.5mm] [17g, 92g] [123, 131]
         self.grip_pos, self.grip_width = 0, 0
@@ -82,15 +85,15 @@ class RobUR5:
 
     def step(self, dx=0, dg=0):
         # action
-        grip_pos_ = max(min(self.grip_pos + dx * self.mul_pos, self.mul_pos), -self.mul_pos)
-        self.grip_width = max(min(self.grip_width + dg * self.mul_width, self.mul_width), -self.mul_width)
+        grip_pos_ = max(min(self.grip_pos + dx * self.mul_pos, self.bou_pos), -self.bou_pos)
+        self.grip_width = max(min(self.grip_width + dg * self.mul_width, self.bou_width), -self.bou_width)
 
         # grasp
         self.move_tcp_relative([0, 0, grip_pos_ - self.grip_pos])          # pre-grasp
         self.move_gripper(int(self.grip_width + self.grip_offset))         # gripper close
         self.tactile.start()                                               # tactile start
-        self.move_tcp_relative([-self.grip_height, 0, 0], 0.1, 0.014)      # move up 1.5s
-        time.sleep(1.0)                                                    # wait 0.5s
+        self.move_tcp_relative([-self.grip_height, 0, 0], 0.1, 0.015) # move up 1.5s
+        time.sleep(1.0)                                                    # wait 1.0s
         self.tactile.stop()                                                # tactile stop
         self.move_tcp_relative([self.grip_height, 0, 0])                   # move down
         self.move_gripper(0)                                               # gripper open
@@ -103,17 +106,42 @@ class RobUR5:
 
     def get_obs(self):
         obs = self.tactile.get_marker_flow()
+        obs = obs[5:, 0:1]
+
+        # print(obs.shape)
+        # for t in range(obs.shape[0]):
+        #     img = self.visualize_tactile(obs[t, 0].transpose([1, 2, 0]))
+        #     cv2.imshow("img", img)
+        #     cv2.waitKey(100)
 
         # specific frame in the timestamp
-        # obs = obs[np.linspace(0, obs.shape[0] - 1, self.num_frame).round().astype(int)]
-        # return obs
+        obs_ = obs[np.linspace(0, obs.shape[0] - 1, self.num_frame).round().astype(int)]
 
         # averaged frames in the timestamp neighborhood
-        step = obs.shape[0] * 1.0 / self.num_frame
-        obs_ = []
-        for i in range(self.num_frame):
-            obs_.append(obs[int(np.round(i * step)):int(np.round((i + 1) * step))].mean(axis=0))
-        return np.stack(obs, axis=0)
+        # step = obs.shape[0] * 1.0 / self.num_frame
+        # obs_ = []
+        # for i in range(self.num_frame):
+        #     obs_.append(obs[int(np.round(i * step)):int(np.round((i + 1) * step))].mean(axis=0))
+        # obs_ = np.stack(obs_, axis=0)
+        return obs_
+
+    def visualize_tactile(self, tactile_array, tactile_resolution=50, shear_force_threshold=2):
+        resolution = tactile_resolution
+        nrows = tactile_array.shape[0]
+        ncols = tactile_array.shape[1]
+
+        imgs_tactile = np.zeros((nrows * resolution, ncols * resolution, 3), dtype=float)
+
+        for row in range(nrows):
+            for col in range(ncols):
+                loc0_x = row * resolution + resolution // 2
+                loc0_y = col * resolution + resolution // 2
+                loc1_x = loc0_x + tactile_array[row, col][0] / shear_force_threshold * resolution
+                loc1_y = loc0_y + tactile_array[row, col][1] / shear_force_threshold * resolution
+                color = (255, 0, 0)
+                cv2.arrowedLine(imgs_tactile, (int(loc0_y), int(loc0_x)), (int(loc1_y), int(loc1_x)), color,
+                                2, tipLength=0.4)
+        return imgs_tactile
 
 
 if __name__ == "__main__":
