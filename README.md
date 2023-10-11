@@ -2,6 +2,9 @@
 Adopted from [source](https://github.com/eanswer/TactileSimulation).
 
 ## Installation
+
+---
+
 1. Clone the project and its submodule from github: `git clone git@github.com:enyen/TactileSimulation.git --recursive `.
 
 2. Install **CMake** >= 3.1.0
@@ -23,16 +26,18 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
 
 ## Run the examples
 
+---
+
 ### Tactile Unstable Grasp
-Training in simulation.
+
+Training in simulation:
 ```commandline
 cd examples/UnstableGraspExp
 python train_sb3.py
 ```
 
-Testing in simulation using model saved in _ug_datetime_.
+Testing in simulation using model saved in _ug_datetime_:
 ```commandline
-cd examples/UnstableGraspExp
 python train_sb3.py ./storage/ug_datetime.zip vis_mode
 ```
 _vis_mode_ can be either: 
@@ -45,6 +50,18 @@ Visualize training progress using tensorboard:
 tensorboard --logdit log
 ```
 
+Getting normalization stats:
+```python
+#  cd env
+#  python
+from unstable_grasp_env import UnstableGraspEnv
+env = UnstableGraspEnv()
+env.data_stat()
+# update self.tactile_means and self.tactile_stds manually inside __init__.
+```
+
+
+
 <p align="center">
     <img src="envs/assets/unstable_grasp/unstable_grasp.gif" alt="unstable_grasp" width="500" /></p>
 
@@ -53,6 +70,8 @@ tensorboard --logdit log
 
 
 ### On real UR5 & Sensor
+
+---
 
 Build marker flow library (adopted from [source](https://github.com/GelSight/tracking)).
 ```commandline
@@ -74,8 +93,13 @@ Test marker flow
 <p align="center">
     <img src="examples/UnstableGraspExp/experiment/ug_real.gif" alt="real_grasp" width="500" /></p>
 
-Run on hardware.
+Collect sensor means and stds:
 ```commandline
 cd examples/UnstableGraspExp
+python test_ur5.py
+```
+
+Actual testing:
+```commandline
 python test_ur5.py ./storage/ug_datetime
 ```

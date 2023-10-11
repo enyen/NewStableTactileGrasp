@@ -46,8 +46,9 @@ class UnstableGraspEnv(gym.Env):
                                            high=np.full(2, 1.), dtype=np.float32)
         self.hand_bound = 0.1
         self.finger_bound = 0.0025
-        # self.tactile_noise = 1e-6
         self.tactile_noise = 1e-5
+        self.tactile_means = np.array([[8.88924733e-05, 1.50673504e-05]])
+        self.tactile_stds = np.array([[0.00012438, 0.00014485]])
 
         self.reward_buf = 0.
         self.done_buf = False
@@ -178,7 +179,7 @@ class UnstableGraspEnv(gym.Env):
         obs_buf = tactiles - tactiles[0:1]
         obs_buf = rearrange(obs_buf, 't (s h w d) -> (t s h w) d', t=self.tactile_samples,  s=self.tactile_sensors,
                             h=self.tactile_rows, w=self.tactile_cols, d=3)[..., 0:self.tactile_dim]
-        obs_buf = self.normalize_tactile(obs_buf, self.tactile_noise)
+        obs_buf = self.normalize_tactile(obs_buf)
         self.obs_buf = rearrange(obs_buf, '(t s h w) d -> t s d h w', t=self.tactile_samples, s=self.tactile_sensors,
                                  h=self.tactile_rows, w=self.tactile_cols, d=self.tactile_dim)
 
@@ -199,13 +200,13 @@ class UnstableGraspEnv(gym.Env):
                                100 * box_drop +
                                0 * grip_force)  # [(-2-2-0):0]
 
-    def normalize_tactile(self, tactile_arrays, noise):
+    def normalize_tactile(self, tactile_arrays):
         # normalized_tactile_arrays = tactile_arrays.copy()
         # lengths = np.linalg.norm(tactile_arrays, axis=-1)
         # normalized_tactile_arrays = normalized_tactile_arrays / ((np.max(lengths) + 1e-5) / 30.)
         # return normalized_tactile_arrays
-        tactile_arrays = (tactile_arrays - np.array([1.21156176e-04, 1.00238935e-06])) / np.array([0.00013228, 0.00013304])
-        tactile_arrays = tactile_arrays + self.np_random.uniform(-noise, noise, tactile_arrays.shape)
+        tactile_arrays = (tactile_arrays - self.tactile_means) / self.tactile_stds
+        tactile_arrays = tactile_arrays + self.np_random.uniform(-self.tactile_noise, self.tactile_noise, tactile_arrays.shape)
         return tactile_arrays
 
     def visualize_tactile(tactile_array, tactile_resolution=50, shear_force_threshold=0.0005):
@@ -281,8 +282,10 @@ class UnstableGraspEnv(gym.Env):
 
     def data_stat(self):
         from rich.progress import track
+        self.tactile_means = 0
+        self.tactile_stds = 1
         data = []
-        for _ in track(range(200), "Collecting..."):
+        for _ in track(range(100), "Collecting..."):
             self.reset()
             obs, _, termi, trunc, _ = self.step(self.np_random.uniform(-1, 1, 2))
             data.append(obs)

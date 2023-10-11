@@ -145,53 +145,53 @@ class RobUR5:
 
 
 if __name__ == "__main__":
-    """
-    python test_ur5.py ./storage/ug_datetime
-    """
-    # init model, robot
-    model = SAC.load(sys.argv[1] + "_model")
-    rob = RobUR5(cam_idx=[4, -1])
+    if len(sys.argv) == 2:
+        """
+        Run Testing
+        python test_ur5.py ./storage/ug_datetime
+        """
+        # init model, robot
+        model = SAC.load(sys.argv[1] + "_model")
+        rob = RobUR5(cam_idx=[4, -1])
 
-    # running
-    for i in range(3):
-        rob.reset()
-        obs = rob.step()
-        while True:
-            action = model.predict(obs, deterministic=True)[0]
-            obs = rob.step(*action)
-            if input('Terminated (y/n) ?') == 'y':
-                break
+        # running
+        for i in range(3):
+            rob.reset()
+            obs = rob.step()
+            while True:
+                action = model.predict(obs, deterministic=True)[0]
+                obs = rob.step(*action)
+                if input('Terminated (y/n) ?') == 'y':
+                    break
 
-    # closing
-    rob.move_home()
-    rob.disconnect()
+        # closing
+        rob.move_home()
+        rob.disconnect()
 
+    elif len(sys.argv) == 1:
+        """
+        compute normalization for real tactile sensors
+        python test_ur5.py  
+        """
+        rob = RobUR5(cam_idx=[4, -1])
+        obss = []
 
-    """
-    compute normalization for real tactile sensors  
-    """
-    from einops import rearrange
+        # running
+        for i in range(3):
+            rob.reset()
+            obs = rob.step()
+            while True:
+                action = np.random.uniform(-1, 1, 2)
+                obs = rob.step(*action)
+                obss.append(obs)
+                if input('Terminated (y/n) ?') == 'y':
+                    break
 
-    # init model, robot
-    # rob = RobUR5(cam_idx=[4, -1])
-    # obss = []
-    #
-    # # running
-    # for i in range(3):
-    #     rob.reset()
-    #     obs = rob.step()
-    #     while True:
-    #         action = np.random.uniform(-1, 1, 2)
-    #         obs = rob.step(*action)
-    #         obss.append(obs)
-    #         if input('Terminated (y/n) ?') == 'y':
-    #             break
-    #
-    # obss = np.concatenate(obss, axis=0)
-    # obss = obss[:, 0:1]
-    # # obss = rearrange(obss, 't s c w h -> (t s w h) c')
-    # np.save('means', obss.mean(axis=0))
-    # np.save('stds', obss.std(axis=0))
-    #
-    # # closing
-    # rob.disconnect()
+        obss = np.concatenate(obss, axis=0)
+        obss = obss[:, 0:1]  # left sensor only
+        np.save('means', obss.mean(axis=0))
+        np.save('stds', obss.std(axis=0))
+
+        # closing
+        rob.move_home()
+        rob.disconnect()
