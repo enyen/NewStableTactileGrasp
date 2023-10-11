@@ -238,7 +238,7 @@ class UnstableGraspEnv(gym.Env):
         super().render('loop')
 
     def render(self):
-        if self.render_style == 'loop':
+        if self.render_style == 'show':
             self.sim.viewer_options.loop = True
             self.sim.viewer_options.infinite = True
             self.sim.viewer_options.speed = 1.

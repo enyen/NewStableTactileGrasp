@@ -33,18 +33,47 @@ python train_sb3.py
 Testing in simulation using model saved in _ug_datetime_.
 ```commandline
 cd examples/UnstableGraspExp
-python train_sb3.py ./storage/ug_datetime
+python train_sb3.py ./storage/ug_datetime.zip vis_mode
+```
+_vis_mode_ can be either: 
+1. 'None' -> no visualization, just statistic
+2. 'show' -> visualize every steps
+3. 'record' -> produce a video of the whole episode
+
+Visualize training progress using tensorboard:
+```commandline
+tensorboard --logdit log
 ```
 
 <p align="center">
     <img src="envs/assets/unstable_grasp/unstable_grasp.gif" alt="unstable_grasp" width="500" /></p>
 
+<p align="center">
+    <img src="examples/UnstableGraspExp/experiment/force_util.png" alt="force_utilization" width="500" /></p>
+
+
 ### On real UR5 & Sensor
+
 Build marker flow library (adopted from [source](https://github.com/GelSight/tracking)).
 ```commandline
 cd examples/UnstableGraspExp/marker_flow
 make
 ```
+
+Test marker flow 
+```python
+ # cd examples/UnstableGraspExp
+ # python
+ from marker_flow.marker_flow import MarkerFlow
+ mf = MarkerFlow()
+ #  ...  follow through to select camera id
+ mf._run(debug=True, collect=False)
+ #  ...  view marker flow visualization, ctrl-c to stop
+```
+
+<p align="center">
+    <img src="examples/UnstableGraspExp/experiment/ug_real.gif" alt="real_grasp" width="500" /></p>
+
 Run on hardware.
 ```commandline
 cd examples/UnstableGraspExp

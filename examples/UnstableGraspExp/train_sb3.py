@@ -6,7 +6,6 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from torch.optim import AdamW
-from torch.nn import Mish
 base_dir = path.abspath(path.join(path.dirname(path.abspath(__file__)), '../../'))
 sys.path.append(base_dir)
 from envs.unstable_grasp_env import UnstableGraspEnv
@@ -26,59 +25,51 @@ if __name__ == "__main__":
                              features_extractor_class=CnnFeaEx,
                              features_extractor_kwargs=dict(features_dim=64),
                              net_arch=dict(pi=[64, 64], qf=[64, 64]),
-                             # features_extractor_kwargs=dict(features_dim=128),
-                             # net_arch=dict(pi=[128, 64], qf=[128, 64]),
                              # features_extractor_class=TfmerFeaEx,
                              # features_extractor_kwargs=dict(features_dim=32),
                              # net_arch=dict(pi=[32, 32], qf=[32, 32]),
                              share_features_extractor=False)
-        # def lr_schedule(init):
-        #     def func(prog): return max(prog * init, 1e-5)
-        #     return func
         model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.995,
                     gradient_steps=-1, target_update_interval=-1, train_freq=(8, 'step'),
                     policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=5e-3)
         model.learn(total_timesteps=20000, progress_bar=True, tb_log_name=dt)
-        model.save('./storage/ug_{}_model'.format(dt))
+        model.save('./storage/ug_{}'.format(dt))
 
     # testing
-    elif len(sys.argv) == 2:
+    elif len(sys.argv) == 3:
         from matplotlib import pyplot as plt
         from sklearn.linear_model import LinearRegression
         import numpy as np
 
         epi_test = 200
         saved_model = sys.argv[1]
-        # venv = VecNormalize.load(saved_model + '_stat.pkl', None)  # vec_normalize.py line309 "if venv is not None:"
-        # venv.training = False
-        # env = UnstableGraspEnv(render_style='record')
-        # env = UnstableGraspEnv(render_style='loop')
-        env = UnstableGraspEnv(render_style='None')
-        model = SAC.load(saved_model + '_model', env)
+        vis_mode = sys.argv[2]
+        assert vis_mode == 'record' or vis_mode == 'show' or vis_mode == 'None'
+        env = UnstableGraspEnv(render_style=vis_mode)
+        model = SAC.load(saved_model, env)
         obs, _ = env.reset()
         env.render()
         lengths, rewards, weight_force, truncation = [], [], [], []
 
         while True:
-            # action, _states = model.predict(venv.normalize_obs(obs), deterministic=True)
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
             env.render()
             if terminated or truncated:
                 print('epi:{:03d}, steps:{}, sumR:{:.01f}, lastR:{:.01f}'.format(
                     len(lengths), env.i_steps, env.acc_reward, reward))
-                # for recording
-                # os.system('ffmpeg {} -filter_complex "[0:v][1:v] concat=n=2:v=1:a=0" -y unstable_grasp.gif'.format(
-                #     ' '.join(['-i ./storage/{}.gif'.format(i) for i in range(total_steps + 1)])))
-                # os.system('rm ./storage/*.gif')
-                # break
-                # for stats)
+                if vis_mode == 'record':
+                    os.system('ffmpeg {} -filter_complex "[0:v][1:v] concat=n={}:v=1:a=0" -y unstable_grasp.gif'.format(
+                        ' '.join(['-i ./storage/{}.gif'.format(i) for i in range(env.i_steps + 1)]), (env.i_steps + 1)))
+                    # os.system('rm ./storage/*.gif')
+                    break
+                # for stats
                 lengths.append(env.i_steps)
                 rewards.append(env.acc_reward)
                 weight_force.append([env.weight_weight, env.finger_q])
                 truncation.append(truncated)
-                env.render()
                 obs, _ = env.reset()
+                env.render()
                 if len(lengths) >= epi_test:
                     break
 
