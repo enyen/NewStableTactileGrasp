@@ -9,14 +9,17 @@ from .matcher import Matching
 
 
 class MarkerFlow:
-    def __init__(self, cam_idx=[-1, -1], tactile_norm=1):
+    def __init__(self, cam_idx=[-1, -1]):
         # init param
         self.fps = 20
         self.cam_idx = cam_idx
         self.running = False
         self.started = False
         self.collection = None
-        self.tactile_norm = tactile_norm
+        try:
+            self.tactile_norm = np.load('means.npy'), np.load('stds.npy')
+        except:
+            self.tactile_norm = 0, 1
         self.process = Thread()
 
         # init process
@@ -154,7 +157,8 @@ class MarkerFlow:
         # flow = rearrange(flow, 't s c h w -> (t s h w) c')
         # mag = np.linalg.norm(flow, axis=-1).max()
         # flow = flow / ((mag + 1e-5) / 30.)
-        flow = flow / self.tactile_norm
+        # flow = flow / self.tactile_norm
+        flow = (flow - self.tactile_norm[0]) / self.tactile_norm[1]
         # flow = rearrange(flow, '(t s h w) c -> t s c h w', t=t, s=s, c=c, h=h, w=w)
         return flow
 

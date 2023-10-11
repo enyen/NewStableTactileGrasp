@@ -15,7 +15,7 @@ sys.path.append(base_dir)
 
 
 class RobUR5:
-    def __init__(self, cam_idx=[-1, -1], tactile_norm=1, ip_robot='10.10.10.1'):
+    def __init__(self, cam_idx=[-1, -1], ip_robot='10.10.10.1'):
         """
         set_tcp with m3d.Orientation.new_euler((a, b, c), 'xyz').rotation_vector
         tcp x: out from tool, y: left of tool, z: forward of tool
@@ -26,7 +26,7 @@ class RobUR5:
         self.rob.set_tcp((0, 0, 0.23, 1.2092, -1.2092, 1.2092))
         self.rob.set_payload(1.0)
         self.gripper = Robotiq_Two_Finger_Gripper(self.rob)
-        self.tactile = MarkerFlow(cam_idx=cam_idx, tactile_norm=tactile_norm)
+        self.tactile = MarkerFlow(cam_idx=cam_idx)
 
         # env param
         self.homej = [1.20595, -1.37872, -2.03732, -1.29741, 1.57073, 1.99222]
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     """
     # init model, robot
     model = SAC.load(sys.argv[1] + "_model")
-    rob = RobUR5(cam_idx=[6, 4], tactile_norm=5.1)
+    rob = RobUR5(cam_idx=[4, -1])
 
     # running
     for i in range(3):
@@ -163,18 +163,17 @@ if __name__ == "__main__":
                 break
 
     # closing
+    rob.move_home()
     rob.disconnect()
-
 
 
     """
     compute normalization for real tactile sensors  
     """
-    # from einops import rearrange
-    #
-    # # init model, robot
-    # model = SAC.load(sys.argv[1] + "_model")
-    # rob = RobUR5(cam_idx=[6, 4], taactile_norm=5.1)
+    from einops import rearrange
+
+    # init model, robot
+    # rob = RobUR5(cam_idx=[4, -1])
     # obss = []
     #
     # # running
@@ -190,8 +189,9 @@ if __name__ == "__main__":
     #
     # obss = np.concatenate(obss, axis=0)
     # obss = obss[:, 0:1]
-    # obss = rearrange(obss, 't s c w h -> (t s w h) c')
-    # print(obss.mean(axis=0), obss.std(axis=0))
+    # # obss = rearrange(obss, 't s c w h -> (t s w h) c')
+    # np.save('means', obss.mean(axis=0))
+    # np.save('stds', obss.std(axis=0))
     #
     # # closing
     # rob.disconnect()
