@@ -1,9 +1,12 @@
+import os
 import sys
 from os import path
 from datetime import datetime
 from stable_baselines3 import SAC
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+from torch.optim import AdamW
+from torch.nn import Mish
 base_dir = path.abspath(path.join(path.dirname(path.abspath(__file__)), '../../'))
 sys.path.append(base_dir)
 from envs.unstable_grasp_env import UnstableGraspEnv
@@ -19,19 +22,23 @@ if __name__ == "__main__":
 
         # model
         policy_kwargs = dict(normalize_images=False,
+                             optimizer_class=AdamW, optimizer_kwargs=dict(betas=(0.9, 0.999), weight_decay=0.01),
                              features_extractor_class=CnnFeaEx,
-                             # features_extractor_kwargs=dict(features_dim=128),
-                             # net_arch=dict(pi=[128, 128], qf=[128, 128]),
                              features_extractor_kwargs=dict(features_dim=64),
                              net_arch=dict(pi=[64, 64], qf=[64, 64]),
+                             # features_extractor_kwargs=dict(features_dim=128),
+                             # net_arch=dict(pi=[128, 64], qf=[128, 64]),
                              # features_extractor_class=TfmerFeaEx,
-                             # features_extractor_kwargs=dict(features_dim=48),
-                             # net_arch=dict(pi=[64, 64], qf=[64, 64]),
+                             # features_extractor_kwargs=dict(features_dim=32),
+                             # net_arch=dict(pi=[32, 32], qf=[32, 32]),
                              share_features_extractor=False)
-        model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.999, learning_rate=5e-3,
-                    gradient_steps=-1, target_update_interval=-1, train_freq=(12, 'step'),
-                    policy_kwargs=policy_kwargs, tensorboard_log='./log')
-        model.learn(total_timesteps=20000, progress_bar=True)
+        # def lr_schedule(init):
+        #     def func(prog): return max(prog * init, 1e-5)
+        #     return func
+        model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.995,
+                    gradient_steps=-1, target_update_interval=-1, train_freq=(8, 'step'),
+                    policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=5e-3)
+        model.learn(total_timesteps=20000, progress_bar=True, tb_log_name=dt)
         model.save('./storage/ug_{}_model'.format(dt))
 
     # testing

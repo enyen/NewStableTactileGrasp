@@ -183,17 +183,17 @@ class UnstableGraspEnv(gym.Env):
         # reward
         th_rot = -0.005
         th_drop = -0.002
-        box_rot = -np.linalg.norm(qs[:, 9:12], axis=1).max()                # min-0.095
-        box_drop = min(0, (qs[0, 2] - qs[0, 8]) - (qs[-1, 2] - qs[-1, 8]))  # min-0.020
+        box_rot = -min(np.linalg.norm(box_orien, axis=1).max(), 0.092)                # min-0.092
+        box_drop = -max(0, min(0.02, (gripper_height[-1] - gripper_height[0]) - (box_height[-1] - box_height[0])))  # min-0.020
         grip_force = -self.finger_bound - self.finger_q                     # min-0.005
 
         if box_rot > th_rot and box_drop > th_drop:
             self.done_buf = True
-            self.reward_buf = (50 +
-                               9000 * grip_force)  # [5:50]
+            self.reward_buf = (70 +
+                               12000 * grip_force)  # [10:70]
         else:
             self.done_buf = False
-            self.reward_buf = (20 * box_rot +
+            self.reward_buf = (22 * box_rot +
                                100 * box_drop +
                                0 * grip_force)  # [(-2-2-0):0]
 

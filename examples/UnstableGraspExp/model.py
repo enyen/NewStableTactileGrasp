@@ -95,14 +95,14 @@ class CrossAttention(nn.Module):
         self.drop = nn.Dropout(dropout)
 
     def forward(self, tgt, mem, mem_mask=None, mem_key_padding_mask=None):
-        identity = tgt
-        tgt = self.norm(tgt)
-        tgt = self.attn(tgt, mem, mem,
-                        attn_mask=mem_mask,
-                        key_padding_mask=mem_key_padding_mask,
-                        need_weights=False)[0]
-        tgt = self.drop(tgt)
-        return tgt + identity
+        # identity = tgt
+        tgt_ = self.norm(tgt)
+        tgt_ = self.attn(tgt_, mem, mem,
+                         attn_mask=mem_mask,
+                         key_padding_mask=mem_key_padding_mask,
+                         need_weights=False)[0]
+        tgt_ = self.drop(tgt_)
+        return tgt + tgt_
 
 
 class FefoAttention(nn.Module):
@@ -110,8 +110,10 @@ class FefoAttention(nn.Module):
         super().__init__()
         self.fefo = nn.Sequential(
             nn.LayerNorm(d_model, eps=layer_norm_eps),
-            nn.Linear(d_model, d_fefo * 2),
-            GEGLU(),
+            # nn.Linear(d_model, d_fefo * 2),
+            # GEGLU(),
+            nn.Linear(d_model, d_fefo),
+            nn.Mish(),
             nn.Linear(d_fefo, d_model),
             nn.Dropout(dropout))
 
@@ -132,22 +134,21 @@ class TfmerFeaEx(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim):
         super().__init__(observation_space, features_dim)
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
-        d_input = n_c
+        d_input = n_c * 1
         self.cnn = nn.Sequential(
-            nn.Conv2d(d_input * 1, d_input * 8, kernel_size=3, bias=False, padding=1),
+            nn.Conv2d(d_input * 1, d_input * 4, kernel_size=3, bias=False, padding=1),  # 8x6 -> 8x6
+            nn.BatchNorm2d(d_input * 4),
+            nn.SiLU(),
+            nn.AdaptiveMaxPool2d((n_h // 2, n_w // 2)),  # 8x6 -> 4x3
+            nn.Conv2d(d_input * 4, d_input * 8, kernel_size=3, bias=False),  # 4x3 -> 2x1
             nn.BatchNorm2d(d_input * 8),
             nn.SiLU(),
-            nn.AdaptiveAvgPool2d((n_h // 2, n_w // 2)),
-            nn.Conv2d(d_input * 8, d_input * 12, kernel_size=3, bias=False),
-            nn.BatchNorm2d(d_input * 12),
-            nn.SiLU(),
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(d_input * 12, features_dim // n_s),
+            nn.Flatten(),  # 2x1 -> 2
+            nn.Linear(d_input * 8 * 2, features_dim // n_s),
             nn.SiLU()
         )
         self.pos_enc = PositionalEncoding(d_model=features_dim, sizes=n_t, cat_pe=False)
-        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 6,
+        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 4,
                            dropout=0, n_lyr=3)
 
     def forward(self, x):
@@ -166,17 +167,16 @@ class CnnFeaEx(BaseFeaturesExtractor):
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
         d_input = n_c * n_t
         self.model = nn.Sequential(
-            nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False, padding=1),
+            nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False, padding=1),  # 8x6 -> 8x6
             nn.BatchNorm2d(d_input * 2),
             nn.SiLU(),
-            nn.AdaptiveMaxPool2d((n_h // 2, n_w // 2)),
-            nn.Conv2d(d_input * 2, d_input * 3, kernel_size=3, bias=False),
+            nn.AdaptiveMaxPool2d((n_h // 2, n_w // 2)),  # 8x6 -> 4x3
+            nn.Conv2d(d_input * 2, d_input * 3, kernel_size=3, bias=False),  # 4x3 -> 2x1
             nn.BatchNorm2d(d_input * 3),
             nn.SiLU(),
-            # nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
+            nn.Flatten(),  # 2x1 -> 2
             nn.Linear(d_input * 3 * 2, features_dim // n_s),
-            nn.SiLU()
+            nn.SiLU(),
         )
 
     def forward(self, x):
