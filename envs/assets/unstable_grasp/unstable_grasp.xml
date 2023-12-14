@@ -83,9 +83,10 @@
   </robot>
 
   <contact>
-    <ground_contact body="box" kn="5e3" kt="80" mu="0.8" damping="1"/>
-    <general_primitive_contact general_body="tactile_pad_left" primitive_body="box" kn="8e3" kt="80." mu="1.5" damping="1e3" render="false"/>
-    <general_primitive_contact general_body="tactile_pad_right" primitive_body="box" kn="8e3" kt="80." mu="1.5" damping="1e3" render="false"/>
+<!--    <ground_contact body="box" kn="5e3" kt="80" mu="0.8" damping="1"/>-->
+    <ground_contact body="box" kn="1e3" kt="1" mu="0.8" damping="0.003"/>
+    <general_primitive_contact general_body="tactile_pad_left" primitive_body="box" kn="8e3" kt="30." mu="1.5" damping="1e3" render="false"/>
+    <general_primitive_contact general_body="tactile_pad_right" primitive_body="box" kn="8e3" kt="30." mu="1.5" damping="1e3" render="false"/>
     <general_primitive_contact primitive_body="box" general_body="weight" mu="0.1"/>
     <general_primitive_contact general_body="box_l" primitive_body="weight" kn="5e3" kt="1e2"/>
     <general_primitive_contact general_body="box_r" primitive_body="weight" kn="5e3" kt="1e2"/>

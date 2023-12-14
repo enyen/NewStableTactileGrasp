@@ -47,8 +47,8 @@ class UnstableGraspEnv(gym.Env):
         self.hand_bound = 0.1
         self.finger_bound = 0.0025
         self.tactile_noise = 1e-5
-        self.tactile_means = np.array([[8.88924733e-05, 1.50673504e-05]])
-        self.tactile_stds = np.array([[0.00012438, 0.00014485]])
+        self.tactile_means = np.array([[0.000117, 0]])
+        self.tactile_stds = np.array([[0.000155, 0.000167]])
 
         self.reward_buf = 0.
         self.done_buf = False
