@@ -14,12 +14,13 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
    ```
    conda create -n tactile_sim python=3.9
    conda activate tactile_sim
-   pip install torch torchvision opencv-python einops stable_baselines3 tensorboard scipy pyyaml tqdm rich mathplotlib pybind11 math3d=3.4.1 git+https://github.com/enyen/python-urx
+   pip install torch torchvision scikit-learn opencv-python einops stable_baselines3 tensorboard scipy pyyaml tqdm rich matplotlib pybind11 math3d=3.4.1 git+https://github.com/enyen/python-urx
    ```
 
 5. Install `DiffRedMax`
 
    ```
+   sudo apt-get install freeglut3-dev libglfw3-dev libxinerama-dev livxcursor-dev libxi-dev libxxf86vm-dev   
    cd externals/DiffHand/core
    python setup.py install
    ```
