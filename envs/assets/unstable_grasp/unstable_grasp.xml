@@ -60,16 +60,16 @@
     <link name="box">
       <joint name="box" type="free3d-euler" pos="0 0 0.015" quat="1 0 0 0" damping="0.0"/>
       <body name="box" type="cuboid" size="0.03 0.22 0.03" pos="0 0 0" quat="1 0 0 0" density="25"
-            general_contact_resolution="3 3 2" rgba="0.3 0.2 0.05 0"/>
+            general_contact_resolution="3 3 2" rgba="0.25 0.25 0.28 0"/>
       <link name="box_l">
         <joint name="box_l" type="fixed" pos="0 0.115 0.025" quat="1 0 0 0" damping="0.0"/>
         <body name="box_l" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="25"
-              general_contact_resolution="3 3 2" rgba="0.45 0.45 0.4 0"/>
+              general_contact_resolution="3 3 2" rgba="0.2 0.2 0.2 0"/>
       </link>
       <link name="box_r">
         <joint name="box_r" type="fixed" pos="0 -0.115 0.025" quat="1 0 0 0" damping="0.0"/>
         <body name="box_r" type="cuboid" size="0.03 0.01 0.02" pos="0 0 0" quat="1 0 0 0" density="25"
-              general_contact_resolution="3 3 2" rgba="0.45 0.45 0.4 0"/>
+              general_contact_resolution="3 3 2" rgba="0.2 0.2 0.2 0"/>
       </link>
     </link>
   </robot>
@@ -101,7 +101,7 @@
 
   <sensor>
     <tactile body="tactile_pad_left" name="tactile_pad_left" type="rect_array" rect_pos0="0.007 -0.005 0.0015"
-             rect_pos1="-0.007 0.005 0.0015" axis0="-1 0 0" axis1="0 1 0" resolution="8 6" render="true"/>
+             rect_pos1="-0.007 0.005 0.0015" axis0="-1 0 0" axis1="0 -1 0" resolution="8 6" render="true"/>
 <!--    <tactile body="tactile_pad_right" name="tactile_pad_right" type="rect_array" rect_pos0="0.007 -0.005 0.0015"-->
 <!--             rect_pos1="-0.007 0.005 0.0015" axis0="-1 0 0" axis1="0 1 0" resolution="8 6" render="true"/>-->
   </sensor>

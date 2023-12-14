@@ -1,11 +1,12 @@
 import os
 import sys
 from os import path
+from typing import Callable
 from datetime import datetime
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from torch.optim import AdamW
+from torch.optim import Adam
 base_dir = path.abspath(path.join(path.dirname(path.abspath(__file__)), '../../'))
 sys.path.append(base_dir)
 from envs.unstable_grasp_env import UnstableGraspEnv
@@ -20,19 +21,23 @@ if __name__ == "__main__":
         env = make_vec_env(UnstableGraspEnv, n_envs=8, vec_env_cls=SubprocVecEnv)
 
         # model
+        def linear_schedule(initial_value):
+            def func(progress_remaining):
+                return max(3e-4, progress_remaining * initial_value)
+            return func
         policy_kwargs = dict(normalize_images=False,
-                             optimizer_class=AdamW, optimizer_kwargs=dict(betas=(0.9, 0.999), weight_decay=0.01),
+                             optimizer_class=Adam, optimizer_kwargs=dict(betas=(0.9, 0.999), weight_decay=1e-5),
                              features_extractor_class=CnnFeaEx,
                              features_extractor_kwargs=dict(features_dim=64),
                              net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              # features_extractor_class=TfmerFeaEx,
                              # features_extractor_kwargs=dict(features_dim=32),
-                             # net_arch=dict(pi=[32, 32], qf=[32, 32]),
+                             # net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              share_features_extractor=False)
         model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.995,
                     gradient_steps=-1, target_update_interval=-1, train_freq=(8, 'step'),
-                    policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=5e-3)
-        model.learn(total_timesteps=20000, progress_bar=True, tb_log_name=dt)
+                    policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=linear_schedule(1e-3))
+        model.learn(total_timesteps=60000, progress_bar=True, tb_log_name=dt)
         model.save('./storage/ug_{}'.format(dt))
 
     # testing
