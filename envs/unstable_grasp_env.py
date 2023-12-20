@@ -256,16 +256,15 @@ class UnstableGraspEnv(gym.Env):
             self.sim.set_u(actions[t])
             self.sim.forward(1, verbose=False, test_derivatives=False)
 
-            if q_mask[t]:
-                qs.append(self.sim.get_q().copy())
+            qs.append(self.sim.get_q().copy())
             if tactile_masks[t]:
                 tactiles.append(self.sim.get_tactile_force_vector().copy())
 
         qs = np.stack(qs, axis=0)
         weight_pos = qs[:, 12]
-        box_orien = qs[:, 8:11]
-        gripper_height = qs[:, 2]
-        box_height = qs[:, 7]
+        box_orien = qs[q_mask, 8:11]
+        gripper_height = qs[q_mask, 2]
+        box_height = qs[q_mask, 7]
         tactiles = np.stack(tactiles, axis=0, dtype=np.float32)
         return weight_pos, box_orien, gripper_height, box_height, tactiles
 
