@@ -167,16 +167,17 @@ class CnnFeaEx(BaseFeaturesExtractor):
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
         d_input = n_c * n_t
         self.model = nn.Sequential(
-            nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False, padding=1),  # 8x6 -> 8x6
+            nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False),  # 8x6 -> 6x4
             nn.BatchNorm2d(d_input * 2),
-            nn.SiLU(),
-            nn.AdaptiveMaxPool2d((n_h // 2, n_w // 2)),  # 8x6 -> 4x3
-            nn.Conv2d(d_input * 2, d_input * 3, kernel_size=3, bias=False),  # 4x3 -> 2x1
-            nn.BatchNorm2d(d_input * 3),
-            nn.SiLU(),
+            nn.ReLU(),
+            nn.Conv2d(d_input * 2, d_input * 2, kernel_size=3, bias=False),  # 6x4 -> 4x2
+            nn.BatchNorm2d(d_input * 2),
+            nn.ReLU(),
+            nn.Conv2d(d_input * 2, d_input * 2, kernel_size=(3, 2), bias=False),  # 4x2 -> 2x1
+            nn.BatchNorm2d(d_input * 2),
+            nn.ReLU(),
             nn.Flatten(),  # 2x1 -> 2
-            nn.Linear(d_input * 3 * 2, features_dim // n_s),
-            nn.SiLU(),
+            nn.Linear(d_input * 2 * 2, features_dim // n_s),
         )
 
     def forward(self, x):

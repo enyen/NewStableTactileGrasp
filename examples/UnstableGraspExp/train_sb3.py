@@ -23,7 +23,7 @@ if __name__ == "__main__":
         # model
         def linear_schedule(initial_value):
             def func(progress_remaining):
-                return max(3e-4, progress_remaining * initial_value)
+                return max(1e-4, progress_remaining * initial_value)
             return func
         policy_kwargs = dict(normalize_images=False,
                              optimizer_class=Adam, optimizer_kwargs=dict(betas=(0.9, 0.999), weight_decay=1e-5),
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.995,
                     gradient_steps=-1, target_update_interval=-1, train_freq=(8, 'step'),
                     policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=linear_schedule(1e-3))
-        model.learn(total_timesteps=40000, progress_bar=True, tb_log_name=dt)
+        model.learn(total_timesteps=30000, progress_bar=True, tb_log_name=dt)
         model.save('./storage/ug_{}'.format(dt))
 
     # testing
