@@ -28,10 +28,10 @@ if __name__ == "__main__":
         policy_kwargs = dict(normalize_images=False,
                              optimizer_class=Adam, optimizer_kwargs=dict(betas=(0.9, 0.999), weight_decay=1e-5),
                              features_extractor_class=CnnFeaEx,
-                             features_extractor_kwargs=dict(features_dim=64),
+                             features_extractor_kwargs=dict(features_dim=128),
                              net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              # features_extractor_class=TfmerFeaEx,
-                             # features_extractor_kwargs=dict(features_dim=32),
+                             # features_extractor_kwargs=dict(features_dim=64),
                              # net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              share_features_extractor=False)
         model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.995,
@@ -39,6 +39,23 @@ if __name__ == "__main__":
                     policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=linear_schedule(1e-3))
         model.learn(total_timesteps=30000, progress_bar=True, tb_log_name=dt)
         model.save('./storage/ug_{}'.format(dt))
+
+    # trying
+    elif len(sys.argv) == 2:
+        env = UnstableGraspEnv(render_style='show')
+        obs, _ = env.reset()
+        env.render_tactile()
+        lengths, rewards, weight_force, truncation = [], [], [], []
+
+        while True:
+            obs, reward, terminated, truncated, info = env.step(env.np_random.uniform(-1, 1, 2))
+            env.render_tactile()
+            print('reward:', reward, 'force:', (env.finger_force - env.finger_bound[0]) / (env.finger_bound[1] - env.finger_bound[0]),
+                  'weight', env.load_weight)
+            if terminated or truncated:
+                print(reward, env.acc_reward)
+                obs, _ = env.reset()
+                env.render_tactile()
 
     # testing
     elif len(sys.argv) == 3:
@@ -71,7 +88,7 @@ if __name__ == "__main__":
                 # for stats
                 lengths.append(env.i_steps)
                 rewards.append(env.acc_reward)
-                weight_force.append([env.weight_weight, env.finger_q])
+                weight_force.append([env.load_weight, env.finger_force])
                 truncation.append(truncated)
                 obs, _ = env.reset()
                 env.render()
@@ -90,9 +107,9 @@ if __name__ == "__main__":
         plt.text(0.55, 0.3, 'success: {:.03f}'.format(succeed.sum() * 1.0 / epi_test))
 
         # weight:force
-        rng_weight, rng_force = [25, 100], [0, 5]
-        weights = (weight_force[:, 0] * 1000 - rng_weight[0]) / (rng_weight[1] - rng_weight[0])
-        forces = (weight_force[:, 1] * 1000 - rng_force[0] + 2.5) / (rng_force[1] - rng_force[0])
+        rng_weight, rng_force = [0, 1], [0.1, 0.35]
+        weights = (weight_force[:, 0] - rng_weight[0]) / (rng_weight[1] - rng_weight[0])
+        forces = (weight_force[:, 1] - rng_force[0]) / (rng_force[1] - rng_force[0])
         lens = lengths - lengths.min()
         clr = np.stack((lens / lens.max(), 1. - (lens / lens.max()), np.zeros_like(lens)), axis=1)
         plt.scatter(weights, forces, c=clr)

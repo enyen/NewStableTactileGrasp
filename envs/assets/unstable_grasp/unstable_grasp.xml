@@ -16,7 +16,6 @@
             <body name="gripper_base_virtual" type="cuboid" size="0.001 0.001 0.001" pos="0 0 0" quat="1 0 0 0"
                   density="0.01"/>
             <link name="gripper_base_rotational">
-                <!--        <joint name="gripper_base_rotational" type="revolute" axis="0 0 1" pos="0 0 0" quat="1 0 0 0" damping="0.2"/>-->
                 <joint name="gripper_base_rotational" type="fixed" pos="0 0 0" quat="1 0 0 0"/>
                 <body name="gripper_base" type="mesh" filename="wsg50_base.obj" pos="0 0 0" quat="1 0 0 0" density="1"
                       transform_type="OBJ_TO_JOINT" rgba="0.7 0.7 0.7 0"/>
@@ -80,9 +79,9 @@
     </robot>
 
     <robot>
-        <link name="weight">
-            <joint name="weight" type="free3d-euler" pos="0 0 0.04" quat="1 0 0 0" damping="0.0"/>
-            <body name="weight" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="2500"
+        <link name="load">
+            <joint name="load" type="free3d-euler" pos="0 0 0.04" quat="1 0 0 0" damping="0.0"/>
+            <body name="load" type="cuboid" size="0.025 0.03 0.02" pos="0 0 0" quat="1 0 0 0" density="2500"
                   general_contact_resolution="3 3 2" rgba="0.3 0.1 0.07 0"/>
         </link>
     </robot>
@@ -93,25 +92,20 @@
                                    damping="1e3" render="false"/>
         <general_primitive_contact general_body="tactile_pad_right" primitive_body="box" kn="8e3" kt="30." mu="1.5"
                                    damping="1e3" render="false"/>
-        <general_primitive_contact primitive_body="box" general_body="weight" mu="0.1" kn="5e3" kt="100"/>
-        <general_primitive_contact general_body="box_l" primitive_body="weight" kn="5e3" kt="100"/>
-        <general_primitive_contact general_body="box_r" primitive_body="weight" kn="5e3" kt="100"/>
+        <general_primitive_contact primitive_body="box" general_body="load" mu="0.1" kn="5e3" kt="100"/>
+        <general_primitive_contact general_body="box_l" primitive_body="load" kn="5e3" kt="100"/>
+        <general_primitive_contact general_body="box_r" primitive_body="load" kn="5e3" kt="100"/>
     </contact>
 
     <actuator>
         <motor joint="gripper_base_translational" ctrl="position" P="400" D="1.0" ctrl_range="-10 10"/>
-        <!--    <motor joint="gripper_base_rotational" ctrl="position" P="10" D="0.1"/>-->
-        <motor joint="gripper_left_joint" ctrl="position" P="50" D="0.1"/>
-        <motor joint="gripper_right_joint" ctrl="position" P="50" D="0.1"/>
-        <!--    <motor joint="gripper_left_joint" ctrl="force" ctrl_range="-10 10"/>-->
-        <!--    <motor joint="gripper_right_joint" ctrl="force" ctrl_range="-10 10"/>-->
+            <motor joint="gripper_left_joint" ctrl="force" ctrl_range="-1 1"/>
+            <motor joint="gripper_right_joint" ctrl="force" ctrl_range="-1 1"/>
     </actuator>
 
     <sensor>
         <tactile body="tactile_pad_left" name="tactile_pad_left" type="rect_array" rect_pos0="0.007 -0.005 0.0015"
                  rect_pos1="-0.007 0.005 0.0015" axis0="-1 0 0" axis1="0 -1 0" resolution="8 6" render="true"/>
-        <!--    <tactile body="tactile_pad_right" name="tactile_pad_right" type="rect_array" rect_pos0="0.007 -0.005 0.0015"-->
-        <!--             rect_pos1="-0.007 0.005 0.0015" axis0="-1 0 0" axis1="0 1 0" resolution="8 6" render="true"/>-->
     </sensor>
 
 </redmax>

@@ -9,12 +9,11 @@ from einops import rearrange
 """
 dof definition:
 # qs[0:3]: xyz position of gripper base
-# "removed" qs[3]: z-axis rotation of gripper revolute joint
 # qs[3:5]: prismatic position of two gripper fingers (along x axis), open(-ve), close(+ve) 
 # qs[5:8]: xyz position of the bar
 # qs[8:11]: the orientation of the bar in rotvec representation
-# qs[11:14]: xyz position of weight
-# qs[14:17]: the orientation of weight in rotvec representation
+# qs[11:14]: xyz position of load
+# qs[14:17]: the orientation of load in rotvec representation
 """
 
 
@@ -44,11 +43,11 @@ class UnstableGraspEnv(gym.Env):
         # action
         self.action_space = gym.spaces.Box(low=np.full(2, -1.),
                                            high=np.full(2, 1.), dtype=np.float32)
-        self.hand_bound = 0.1
-        self.finger_bound = 0.0025
-        self.tactile_noise = 1e-5
-        self.tactile_means = np.array([[0.000117, 0]])
-        self.tactile_stds = np.array([[0.000155, 0.000167]])
+        self.hand_bound = [-0.102, 0.102]
+        self.finger_bound = [0.1, 0.35]
+        self.tactile_noise = 0
+        self.tactile_means = np.array([[1.07513879e-04, -1.76299886e-07]])
+        self.tactile_stds = np.array([[0.00014761, 0.00014823]])
 
         self.reward_buf = 0.
         self.done_buf = False
@@ -56,7 +55,7 @@ class UnstableGraspEnv(gym.Env):
         self.i_steps = 0
         self.acc_reward = 0
         self.hand_q = 0.
-        self.finger_q = 0.
+        self.finger_force = (self.finger_bound[1] - self.finger_bound[0]) / 2
         _ = self.reset()
 
     def reset(self, seed=None, options=None):
@@ -67,7 +66,7 @@ class UnstableGraspEnv(gym.Env):
         self.i_steps = 0
         self.acc_reward = 0
         self.hand_q = 0.
-        self.finger_q = 0.
+        self.finger_force = (self.finger_bound[1] - self.finger_bound[0]) / 2
         self.sim.clearBackwardCache()
 
         # init observation
@@ -75,60 +74,39 @@ class UnstableGraspEnv(gym.Env):
         return self.obs_buf, {}
 
     def domain_rand(self):
-        # TODO: set ranges
         """
         hand height
-        weight position, density, size, friction
-        contact kn, kt, mu, damping
-        tactile kn, kt, mu, damping
+        load position, density, size, friction
         """
         finger_height_range = [0.163, 0.169]
-        weight_pos_range = [-0.089, 0.089]
-        weight_width_range = [0.015, 0.040]
-        weight_density_range = [3300, 5000]
-        weight_mu_range = [0.1, 0.16]
-        # contact_kn_range = [2e3, 14e3]
-        # contact_kt_range = [20., 140.]
-        # contact_mu_range = [0.5, 2.5]
-        # contact_damping_range = [1e3, 1e3]
-        # tactile_kn_range = [50, 450]
-        # tactile_kt_range = [0.2, 2.3]
-        # tactile_mu_range = [0.5, 2.5]
-        # tactile_damping_range = [0, 100]
+        load_mu_range = [0.06, 0.10]
+        load_pos_range = [-0.089, 0.089]
+        load_width_range = [0.015, 0.040]
+        load_density_range = [3300, 5000]
 
         self.hand_height = self.np_random.uniform(*finger_height_range)
-        self.weight_pos = self.np_random.uniform(*weight_pos_range)
-        self.weight_width = self.np_random.uniform(*weight_width_range)
-        weight_density = self.np_random.uniform(*weight_density_range)
-        weight_mu = self.np_random.uniform(*weight_mu_range)
-        # contact_kn = self.np_random.uniform(*contact_kn_range)
-        # contact_kt = self.np_random.uniform(*contact_kt_range)
-        # contact_mu = self.np_random.uniform(*contact_mu_range)
-        # contact_damping = self.np_random.uniform(*contact_damping_range)
-        # tactile_kn = self.np_random.uniform(*tactile_kn_range)
-        # tactile_kt = self.np_random.uniform(*tactile_kt_range)
-        # tactile_mu = self.np_random.uniform(*tactile_mu_range)
-        # tactile_damping = self.np_random.uniform(*tactile_damping_range)
+        load_mu = self.np_random.uniform(*load_mu_range)
+        self.load_pos = self.np_random.uniform(*load_pos_range)
+        self.load_width = self.np_random.uniform(*load_width_range)
+        load_density = self.np_random.uniform(*load_density_range)
 
-        self.sim.update_body_color('weight', tuple(self.np_random.uniform(0, 1, 3)))
-        self.sim.update_body_density('weight', weight_density)
-        self.sim.update_contact_parameters('weight', 'box', mu=weight_mu, kn=5e3, kt=1e2, damping=1e2)
-        self.sim.update_body_size('weight', (0.025, self.weight_width, 0.02))
-        self.weight_weight = 0.025 * self.weight_width * 0.02 * weight_density
-        # self.sim.update_contact_parameters('tactile_pad_left', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
-        # self.sim.update_contact_parameters('tactile_pad_right', 'box', kn=contact_kn, kt=contact_kt, mu=contact_mu, damping=contact_damping)
-        # self.sim.update_tactile_parameters('tactile_pad_left', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
-        # self.sim.update_tactile_parameters('tactile_pad_right', kn=tactile_kn, kt=tactile_kt, mu=tactile_mu, damping=tactile_damping)
+        self.sim.update_body_color('load', tuple(self.np_random.uniform(0, 1, 3)))
+        self.sim.update_body_density('load', load_density)
+        self.sim.update_body_size('load', (0.025, self.load_width, 0.02))
+        self.sim.update_contact_parameters('load', 'box', mu=load_mu, kn=5e3, kt=1e2, damping=1e2)
+        self.load_weight = ((self.load_width * load_density - load_width_range[0] * load_density_range[0]) /
+                            (load_width_range[1] * load_density_range[1] - load_width_range[0] * load_density_range[0]))
 
     def step(self, u):
         self.i_steps += 1
-        action = np.clip(u, -1., 1.) * 1.0 * [self.hand_bound, self.finger_bound]
-        self.hand_q = np.clip(self.hand_q + action[0], -self.hand_bound, self.hand_bound)
-        self.finger_q = np.clip(self.finger_q + action[1], -self.finger_bound, self.finger_bound)
+        action = np.clip(u, -1., 1.) * [(self.hand_bound[1] - self.hand_bound[0]) / 2,
+                                        (self.finger_bound[1] - self.finger_bound[0]) / 2]
+        self.hand_q = np.clip(self.hand_q + action[0], self.hand_bound[0], self.hand_bound[1])
+        self.finger_force = np.clip(self.finger_force + action[1], self.finger_bound[0], self.finger_bound[1])
         self.grasp()
         truncated = False
         info = {}
-        if self.i_steps == 6 and not self.done_buf:
+        if self.i_steps == 10 and not self.done_buf:
             truncated = True
             info["TimeLimit.truncated"] = True
         self.acc_reward += self.reward_buf
@@ -136,38 +114,30 @@ class UnstableGraspEnv(gym.Env):
 
     def grasp(self):
         # action
+        finger_init = -0.02
         lift_dist = 0.02
-        lift_height = self.hand_height + lift_dist
-        offset_finger = -0.016
-        finger_q = self.finger_q + offset_finger
 
         target_qs = np.array([
-            [0.0, self.hand_q, self.hand_height, finger_q, finger_q],        # close
-            [0.0, self.hand_q, lift_height, finger_q, finger_q],             # up
-            [0.0, self.hand_q, self.hand_height, finger_q, finger_q],        # down
+            [0.0, self.hand_q, self.hand_height, self.finger_force, self.finger_force],              # close
+            [0.0, self.hand_q, self.hand_height + lift_dist, self.finger_force, self.finger_force],  # up
+            [0.0, self.hand_q, self.hand_height, self.finger_force, self.finger_force],              # down
         ])
         num_steps = [400, 50]
         actions = []
-        for stage in range(len(num_steps)):  # linear interpolation
+        for stage in range(len(num_steps)):  # sine interpolation
             for i in range(num_steps[stage]):
-                # u = target_qs[stage] + (target_qs[stage + 1] - target_qs[stage]) * (i + 1) / num_steps[stage]
                 u = (target_qs[stage] + (target_qs[stage + 1] - target_qs[stage]) *
                      (np.sin((i + 1) * np.pi / num_steps[stage] - np.pi / 2) + 1) / 2)
                 actions.append(u)
         actions = np.array(actions)
-        tactile_mask = np.zeros(sum(num_steps), dtype=bool)
-        tactile_masks_ = np.linspace(5, num_steps[0], self.tactile_samples).round().astype(int).tolist()
-        tactile_mask[tactile_masks_] = True
-        q_mask = np.zeros(sum(num_steps), dtype=bool)
-        q_mask[:num_steps[0]] = True
 
         # simulation
-        q_init = np.array([0, self.hand_q, self.hand_height, finger_q, finger_q,
+        q_init = np.array([0, self.hand_q, self.hand_height, finger_init, finger_init,
                            0,0,0, 0,0,0,
-                           0,self.weight_pos,0, 0,0,0])
-        weight_pos, box_orien, gripper_height, box_height, tactiles = (
-            self.sim_epi_forward(q_init, actions, tactile_mask, q_mask))
-        self.weight_pos = np.clip(weight_pos[-1], -(0.11 - self.weight_width / 2), (0.11 - self.weight_width / 2))
+                           0,self.load_pos,0, 0,0,0])
+        load_pos, box_orien, gripper_height, box_height, tactiles = (
+            self.sim_epi_forward(q_init, actions, num_steps[0], self.tactile_samples))
+        self.load_pos = np.clip(load_pos[-1], -(0.11 - self.load_width / 2), (0.11 - self.load_width / 2))
 
         # observation
         # obs_buf = tactiles - tactiles[0:1]
@@ -178,13 +148,11 @@ class UnstableGraspEnv(gym.Env):
                                  h=self.tactile_rows, w=self.tactile_cols, d=self.tactile_dim)
 
         # reward
-        th_rot = 0.25   # 1.36degree
+        th_rot = 0.22   # 0.02rad, 1.15degree
         th_drop = 0.15  # 3mm
-        box_rot = min(np.linalg.norm(box_orien, axis=1).max(), 0.095) / 0.095
+        box_rot = min(np.linalg.norm(box_orien, axis=1).max(), 0.091) / 0.091
         box_drop = max(0, min(lift_dist, (gripper_height[-1] - gripper_height[0]) - (box_height[-1] - box_height[0]))) / lift_dist
-        grip_force = (self.finger_bound + self.finger_q) / (2 * self.finger_bound)
-        grip_weight = (self.weight_weight - 0.02475) / (0.1 - 0.02475)
-        force_diff = grip_force - grip_weight
+        force_diff = (self.finger_force - self.finger_bound[0]) / (self.finger_bound[1] - self.finger_bound[0]) - self.load_weight
 
         self.done_buf = False
         self.reward_buf = max(box_rot, box_drop) * -1.
@@ -201,7 +169,7 @@ class UnstableGraspEnv(gym.Env):
         tactile_arrays = tactile_arrays + self.np_random.uniform(-self.tactile_noise, self.tactile_noise, tactile_arrays.shape)
         return tactile_arrays
 
-    def visualize_tactile(tactile_array, tactile_resolution=50, shear_force_threshold=0.0005):
+    def visualize_tactile(self, tactile_array, tactile_resolution=50, shear_force_threshold=0.0001):
         resolution = tactile_resolution
         nrows = tactile_array.shape[0]
         ncols = tactile_array.shape[1]
@@ -214,21 +182,22 @@ class UnstableGraspEnv(gym.Env):
                 loc0_y = col * resolution + resolution // 2
                 loc1_x = loc0_x + tactile_array[row, col][0] / shear_force_threshold * resolution
                 loc1_y = loc0_y + tactile_array[row, col][1] / shear_force_threshold * resolution
-                color = (255, 0, 0)
+                color = (1, 0.2, 0.2)
                 cv2.arrowedLine(imgs_tactile, (int(loc0_y), int(loc0_x)), (int(loc1_y), int(loc1_x)), color,
-                                2, tipLength=0.4)
+                                3, tipLength=0.4)
 
         return imgs_tactile
 
     def render_tactile(self):
-        tactile_obs = self.obs_buf.reshape(self.tactile_samples, self.tactile_sensors, self.tactile_rows, self.tactile_cols, self.tactile_dim)
-        img_tactile_left = self.visualize_tactile(tactile_obs[-2:-1, 0:1, ...].transpose([1, 2, 0]))
-        img_tactile_right = self.visualize_tactile(tactile_obs[-2:-1, 1:2, ...].transpose([1, 2, 0]))
-        cv2.imshow("tactile_left", img_tactile_left)
-        cv2.imshow("tactile_right", img_tactile_right)
-        cv2.waitKey(1)
-        print('\033[96m', 'Looping... Press [Esc] to continue.', '\033[0m')
-        super().render('loop')
+        obs_buf = rearrange(self.obs_buf, 't s d h w -> (t s h w) d')
+        obs_buf = obs_buf * self.tactile_stds + self.tactile_means
+        obs_buf = rearrange(obs_buf, '(t s h w) d -> t s d h w', t=self.tactile_samples,
+                            s=self.tactile_sensors, h=self.tactile_rows, w=self.tactile_cols)
+        for t in range(self.obs_buf.shape[0]):
+            img = self.visualize_tactile(obs_buf[t, 0].transpose([1, 2, 0]))
+            cv2.imshow("img", img)
+            cv2.waitKey(200)
+        self.render()
 
     def render(self):
         if self.render_style == 'show':
@@ -247,7 +216,8 @@ class UnstableGraspEnv(gym.Env):
             system("ffmpeg -framerate 30 -i ./storage/%d.png -i ./storage/palette.png -lavfi paletteuse ./storage/{}.gif -hide_banner -loglevel error".format(self.i_steps))
             system("rm ./storage/*.png")
 
-    def sim_epi_forward(self, q0, actions, tactile_masks, q_mask):
+    def sim_epi_forward(self, q0, actions, num_steps, num_tactile):
+        t_tactile = np.linspace(8, num_steps, num_tactile).round().astype(int).tolist()
         self.sim.set_state_init(q0, np.zeros_like(q0))
         self.sim.reset(backward_flag=False)
 
@@ -257,27 +227,30 @@ class UnstableGraspEnv(gym.Env):
             self.sim.forward(1, verbose=False, test_derivatives=False)
 
             qs.append(self.sim.get_q().copy())
-            if tactile_masks[t]:
+            if t in t_tactile:
                 tactiles.append(self.sim.get_tactile_force_vector().copy())
 
         qs = np.stack(qs, axis=0)
-        weight_pos = qs[:, 12]
-        box_orien = qs[q_mask, 8:11]
-        gripper_height = qs[q_mask, 2]
-        box_height = qs[q_mask, 7]
+        load_pos = qs[:, 12]
+        box_orien = qs[:num_steps, 8:11]
+        gripper_height = qs[:num_steps, 2]
+        box_height = qs[:num_steps, 7]
         tactiles = np.stack(tactiles, axis=0, dtype=np.float32)
-        return weight_pos, box_orien, gripper_height, box_height, tactiles
+        return load_pos, box_orien, gripper_height, box_height, tactiles
 
     def close(self):
         pass
 
     def data_stat(self):
         from rich.progress import track
+        # disable normalization
         self.tactile_means = 0
         self.tactile_stds = 1
+
+        # collect values
         data = []
-        for _ in track(range(100), "Collecting..."):
-            self.reset()
+        self.reset()
+        for _ in track(range(256), "Collecting..."):
             obs, _, termi, trunc, _ = self.step(self.np_random.uniform(-1, 1, 2))
             data.append(obs)
             if termi or trunc:

@@ -136,19 +136,20 @@ class TfmerFeaEx(BaseFeaturesExtractor):
         n_t, n_s, n_c, n_h, n_w = observation_space.shape
         d_input = n_c * 1
         self.cnn = nn.Sequential(
-            nn.Conv2d(d_input * 1, d_input * 4, kernel_size=3, bias=False, padding=1),  # 8x6 -> 8x6
+            nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False),  # 8x6 -> 6x4
+            nn.BatchNorm2d(d_input * 2),
+            nn.ReLU(),
+            nn.Conv2d(d_input * 2, d_input * 4, kernel_size=3, bias=False),  # 6x4 -> 4x2
             nn.BatchNorm2d(d_input * 4),
-            nn.SiLU(),
-            nn.AdaptiveMaxPool2d((n_h // 2, n_w // 2)),  # 8x6 -> 4x3
-            nn.Conv2d(d_input * 4, d_input * 8, kernel_size=3, bias=False),  # 4x3 -> 2x1
+            nn.ReLU(),
+            nn.Conv2d(d_input * 4, d_input * 8, kernel_size=(3, 2), bias=False),  # 4x2 -> 2x1
             nn.BatchNorm2d(d_input * 8),
-            nn.SiLU(),
+            nn.ReLU(),
             nn.Flatten(),  # 2x1 -> 2
             nn.Linear(d_input * 8 * 2, features_dim // n_s),
-            nn.SiLU()
         )
         self.pos_enc = PositionalEncoding(d_model=features_dim, sizes=n_t, cat_pe=False)
-        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 4,
+        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 3,
                            dropout=0, n_lyr=3)
 
     def forward(self, x):
@@ -170,14 +171,14 @@ class CnnFeaEx(BaseFeaturesExtractor):
             nn.Conv2d(d_input * 1, d_input * 2, kernel_size=3, bias=False),  # 8x6 -> 6x4
             nn.BatchNorm2d(d_input * 2),
             nn.ReLU(),
-            nn.Conv2d(d_input * 2, d_input * 2, kernel_size=3, bias=False),  # 6x4 -> 4x2
-            nn.BatchNorm2d(d_input * 2),
+            nn.Conv2d(d_input * 2, d_input * 3, kernel_size=3, bias=False),  # 6x4 -> 4x2
+            nn.BatchNorm2d(d_input * 3),
             nn.ReLU(),
-            nn.Conv2d(d_input * 2, d_input * 2, kernel_size=(3, 2), bias=False),  # 4x2 -> 2x1
-            nn.BatchNorm2d(d_input * 2),
+            nn.Conv2d(d_input * 3, d_input * 4, kernel_size=(3, 2), bias=False),  # 4x2 -> 2x1
+            nn.BatchNorm2d(d_input * 4),
             nn.ReLU(),
             nn.Flatten(),  # 2x1 -> 2
-            nn.Linear(d_input * 2 * 2, features_dim // n_s),
+            nn.Linear(d_input * 4 * 2, features_dim // n_s),
         )
 
     def forward(self, x):
