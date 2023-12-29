@@ -11,10 +11,7 @@ class PositionalEncoding(nn.Module):
         super().__init__()
 
         self.cat_pe = cat_pe
-        if isinstance(sizes, list):
-            pe = self.gen_2dfo(d_model, sizes)
-        else:
-            pe = self.gen_pe(d_model, sizes)
+        pe = self.gen_pe(d_model, sizes)
         self.register_buffer('pe', pe)
 
     @staticmethod
@@ -25,18 +22,6 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
-        return pe
-
-    @staticmethod
-    def gen_2dfo(d_model, sizes):
-        mul_term = torch.linspace(1., max(sizes) // 2, d_model // 4) * torch.pi
-        position = (torch.linspace(-1., 1., sizes[0]), torch.linspace(-1., 1., sizes[1]))
-        position = torch.stack(torch.meshgrid(*position, indexing='ij'), dim=-1)
-        pe = torch.cat((torch.sin(position[..., 0:1] * mul_term[None, None]),
-                        torch.cos(position[..., 0:1] * mul_term[None, None]),
-                        torch.sin(position[..., 1:2] * mul_term[None, None]),
-                        torch.cos(position[..., 1:2] * mul_term[None, None])), dim=-1)
-        pe = rearrange(pe.unsqueeze(0), 'b h w d -> b (h w) d')
         return pe
 
     def forward(self, x):
@@ -149,8 +134,8 @@ class TfmerFeaEx(BaseFeaturesExtractor):
             nn.Linear(d_input * 8 * 2, features_dim // n_s),
         )
         self.pos_enc = PositionalEncoding(d_model=features_dim, sizes=n_t, cat_pe=False)
-        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 3,
-                           dropout=0, n_lyr=3)
+        self.tfmer = Tfmer(d_model=features_dim, n_head=2, d_fefo=features_dim * 4,
+                           dropout=0, n_lyr=8)
 
     def forward(self, x):
         b, t, s, c, h, w = x.shape

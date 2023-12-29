@@ -45,9 +45,9 @@ class UnstableGraspEnv(gym.Env):
                                            high=np.full(2, 1.), dtype=np.float32)
         self.hand_bound = [-0.102, 0.102]
         self.finger_bound = [0.1, 0.35]
-        self.tactile_noise = 0
         self.tactile_means = np.array([[1.07513879e-04, -1.76299886e-07]])
         self.tactile_stds = np.array([[0.00014761, 0.00014823]])
+        self.tactile_noise = 0
 
         self.reward_buf = 0.
         self.done_buf = False
@@ -79,7 +79,7 @@ class UnstableGraspEnv(gym.Env):
         load position, density, size, friction
         """
         finger_height_range = [0.163, 0.169]
-        load_mu_range = [0.06, 0.10]
+        load_mu_range = [0.11, 0.21]
         load_pos_range = [-0.089, 0.089]
         load_width_range = [0.015, 0.040]
         load_density_range = [3300, 5000]
@@ -158,7 +158,7 @@ class UnstableGraspEnv(gym.Env):
         self.reward_buf = max(box_rot, box_drop) * -1.
         if box_rot < th_rot and box_drop < th_drop:
             self.done_buf = True
-            self.reward_buf = (1 - max(box_rot, box_drop) ** 2) * (1 - force_diff) * 10.
+            self.reward_buf = min(1. / (max(0, force_diff) + 1e-4), 10.)
 
     def normalize_tactile(self, tactile_arrays):
         # normalized_tactile_arrays = tactile_arrays.copy()
@@ -166,7 +166,9 @@ class UnstableGraspEnv(gym.Env):
         # normalized_tactile_arrays = normalized_tactile_arrays / ((np.max(lengths) + 1e-5) / 30.)
         # return normalized_tactile_arrays
         tactile_arrays = (tactile_arrays - self.tactile_means) / self.tactile_stds
-        tactile_arrays = tactile_arrays + self.np_random.uniform(-self.tactile_noise, self.tactile_noise, tactile_arrays.shape)
+        if self.tactile_noise > 0:
+            tactile_arrays = (tactile_arrays +
+                              self.np_random.uniform(-self.tactile_noise, self.tactile_noise, tactile_arrays.shape))
         return tactile_arrays
 
     def visualize_tactile(self, tactile_array, tactile_resolution=50, shear_force_threshold=0.0001):

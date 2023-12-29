@@ -23,7 +23,7 @@ if __name__ == "__main__":
         # model
         def linear_schedule(initial_value):
             def func(progress_remaining):
-                return max(1e-4, progress_remaining * initial_value)
+                return max(1e-5, progress_remaining * initial_value)
             return func
         policy_kwargs = dict(normalize_images=False,
                              optimizer_class=Adam, optimizer_kwargs=dict(betas=(0.9, 0.999), weight_decay=1e-5),
@@ -31,11 +31,11 @@ if __name__ == "__main__":
                              features_extractor_kwargs=dict(features_dim=128),
                              net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              # features_extractor_class=TfmerFeaEx,
-                             # features_extractor_kwargs=dict(features_dim=64),
+                             # features_extractor_kwargs=dict(features_dim=32),
                              # net_arch=dict(pi=[64, 64], qf=[64, 64]),
                              share_features_extractor=False)
-        model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.995,
-                    gradient_steps=-1, target_update_interval=-1, train_freq=(8, 'step'),
+        model = SAC('CnnPolicy', env, device='cpu', learning_starts=1024, gamma=0.99,
+                    gradient_steps=-1, target_update_interval=1, train_freq=(8, 'step'),
                     policy_kwargs=policy_kwargs, tensorboard_log='./log', learning_rate=linear_schedule(1e-3))
         model.learn(total_timesteps=30000, progress_bar=True, tb_log_name=dt)
         model.save('./storage/ug_{}'.format(dt))
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         from sklearn.linear_model import LinearRegression
         import numpy as np
 
-        epi_test = 200
+        epi_test = 320
         saved_model = sys.argv[1]
         vis_mode = sys.argv[2]
         assert vis_mode == 'record' or vis_mode == 'show' or vis_mode == 'None'
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         weights = (weight_force[:, 0] - rng_weight[0]) / (rng_weight[1] - rng_weight[0])
         forces = (weight_force[:, 1] - rng_force[0]) / (rng_force[1] - rng_force[0])
         lens = lengths - lengths.min()
-        clr = np.stack((lens / lens.max(), 1. - (lens / lens.max()), np.zeros_like(lens)), axis=1)
+        clr = np.stack((lens / 10, 1. - (lens / 10), np.zeros_like(lens)), axis=1)
         plt.scatter(weights, forces, c=clr)
         plt.text(0.36, 0.1, 'Epis length (min, avg, max): {}, {:.03f}, {}'.format(lengths.min(), lengths.mean(), lengths.max()))
 
@@ -123,7 +123,8 @@ if __name__ == "__main__":
 
         plt.title('Grip force against load weight.')
         plt.xlabel('Load Weight')
-        plt.ylabel('Gripping Distance')
+        plt.ylabel('Gripping Force')
         plt.xlim(0, 1.05)
         plt.ylim(0, 1.05)
+        plt.tight_layout()
         plt.show()
