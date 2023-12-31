@@ -150,6 +150,7 @@ class UnstableGraspEnv(gym.Env):
         # reward
         th_rot = 0.22   # 0.02rad, 1.15degree
         th_drop = 0.15  # 3mm
+        th_force = 0.1
         box_rot = min(np.linalg.norm(box_orien, axis=1).max(), 0.091) / 0.091
         box_drop = max(0, min(lift_dist, (gripper_height[-1] - gripper_height[0]) - (box_height[-1] - box_height[0]))) / lift_dist
         force_diff = (self.finger_force - self.finger_bound[0]) / (self.finger_bound[1] - self.finger_bound[0]) - self.load_weight
@@ -157,8 +158,8 @@ class UnstableGraspEnv(gym.Env):
         self.done_buf = False
         self.reward_buf = max(box_rot, box_drop) * -1.
         if box_rot < th_rot and box_drop < th_drop:
+            self.reward_buf = (1 - force_diff) * 30
             self.done_buf = True
-            self.reward_buf = min(1. / (max(0, force_diff) + 1e-4), 10.)
 
     def normalize_tactile(self, tactile_arrays):
         # normalized_tactile_arrays = tactile_arrays.copy()
