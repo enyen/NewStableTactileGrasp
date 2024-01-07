@@ -35,7 +35,7 @@ class RobUR5:
         self.bou_pos = 0.09
         self.bou_width = 4
         self.mul_pos = 0.1
-        self.mul_width = 4  # [13.5mm, 18.5mm] [17g, 92g] [123, 131]
+        self.mul_width = 4  # new force control: [25g-100g]->[TODO]; old position control: [13.5mm, 18.5mm],[17g, 92g]->[123, 131]=[grip_offset-mul_width, grip_offset+mul_width]
         self.grip_pos, self.grip_width = 0, 0
         self.num_frame = 11
 
@@ -92,8 +92,8 @@ class RobUR5:
         self.move_tcp_relative([0, 0, grip_pos_ - self.grip_pos])          # pre-grasp
         self.move_gripper(int(self.grip_width + self.grip_offset))         # gripper close
         self.tactile.start()                                               # tactile start
-        self.move_tcp_relative([-self.grip_height, 0, 0], 0.1, 0.015) # move up 1.5s
-        time.sleep(1.0)                                                    # wait 1.0s
+        self.move_tcp_relative([-self.grip_height, 0, 0], 0.1, 0.01)       # move up 2s
+        # time.sleep(1.0)                                                    # wait 1.0s
         self.tactile.stop()                                                # tactile stop
         self.move_tcp_relative([self.grip_height, 0, 0])                   # move down
         self.move_gripper(0)                                               # gripper open
