@@ -5,11 +5,16 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
 
 ---
 
-1. Clone the project and its submodule from github: `git clone git@github.com:enyen/TactileSimulation.git --recursive `.
+1. Clone the project: `git clone git@github.com:enyen/TactileSimulation.git`.
+2. Clone the submodule:
+   ```
+   mkdir -p externals/DiffHand
+   git clone https://github.com/eanswer/DiffHand.git externals/DiffHand
+   ```
 
-2. Install **CMake** >= 3.1.0
+4. Install **CMake** >= 3.1.0
 
-3. Create conda environment 
+5. Create conda environment 
 
    ```
    conda create -n tactile_sim python=3.9
@@ -17,7 +22,7 @@ Adopted from [source](https://github.com/eanswer/TactileSimulation).
    pip install torch torchvision scikit-learn opencv-python einops stable_baselines3 tensorboard scipy pyyaml tqdm rich matplotlib pybind11 math3d=3.4.1 git+https://github.com/enyen/python-urx
    ```
 
-5. Install `DiffRedMax`
+6. Install `DiffRedMax`
 
    ```
    sudo apt-get install freeglut3-dev libglfw3-dev libxinerama-dev livxcursor-dev libxi-dev libxxf86vm-dev   
