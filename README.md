@@ -7,7 +7,7 @@ This repo contains the implementation of [Learning of Efficient Stable Robot Gra
 [Shan Luo](https://scholar.google.com/citations?hl=en&user=ArnkrbwAAAAJ),
 [Yan Wu](https://scholar.google.com/citations?hl=en&user=Pn1ZxxwAAAAJ).
 
-[ [Paper]() ] [ [Page](https://stable-tactile-grasp.github.io/) ] [ [Slides]() ] 
+[ [Paper](https://arxiv.org/abs/2407.21172) ] [ [Page](https://stable-tactile-grasp.github.io/) ] [ [Slides]() ] 
 
 <p align="center">
     <img src="examples/UnstableGraspExp/experiment/intro.png" alt="intro" width="700" /></p>
