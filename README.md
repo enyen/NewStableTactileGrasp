@@ -131,11 +131,12 @@ python test_ur5.py ./storage/ug_datetime
 
 Please cite our paper if you use this code.
 
-     @inproceedings{,
-        title={},
-        author={},
-        booktitle={},
-        pages={},
-        year={},
-        organization={}
-      }
+     @misc{puang2024learningstablerobotgrasping,
+      title={Learning Stable Robot Grasping with Transformer-based Tactile Control Policies}, 
+      author={En Yen Puang and Zechen Li and Chee Meng Chew and Shan Luo and Yan Wu},
+      year={2024},
+      eprint={2407.21172},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2407.21172}, 
+     }
